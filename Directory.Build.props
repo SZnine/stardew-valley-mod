@@ -1,0 +1,15 @@
+<Project>
+  <Import Project="$(MSBuildThisFileDirectory)GamePath.props"
+          Condition="Exists('$(MSBuildThisFileDirectory)GamePath.props')" />
+  <PropertyGroup>
+    <GamePath Condition="'$(GamePath)' == ''">$(STARDEW_GAME_PATH)</GamePath>
+  </PropertyGroup>
+  <Target Name="ValidateStardewGamePath" BeforeTargets="ResolveAssemblyReferences">
+    <Error Condition="'$(GamePath)' == ''"
+           Text="Set GamePath with -p:GamePath=..., STARDEW_GAME_PATH, or GamePath.props." />
+    <Error Condition="'$(GamePath)' != '' And !Exists('$(GamePath)/Stardew Valley.dll')"
+           Text="GamePath must point to the Stardew Valley installation directory." />
+    <Error Condition="'$(GamePath)' != '' And !Exists('$(GamePath)/StardewModdingAPI.dll')"
+           Text="Install SMAPI in GamePath before building this mod." />
+  </Target>
+</Project>

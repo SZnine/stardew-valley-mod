@@ -1,0 +1,30 @@
+# Build and local test outputs
+**/bin/
+**/obj/
+**/packages/
+.artifacts/
+**/runtime-mods/
+**/evidence/
+*.dll
+*.exe
+*.pdb
+*.zip
+*.log
+*.user
+*.suo
+
+# Per-machine settings
+GamePath.props
+config.json
+.env
+.env.*
+.vs/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Working materials are not part of this public source snapshot
+development-zone/
+**/backups/
+**/reference/

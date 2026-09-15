@@ -15,6 +15,10 @@ internal static class NativeHooks
     {
         current = controller;
         WalkingInput.Install(harmony, controller);
+        harmony.Patch(AccessTools.Method(typeof(Farmer), nameof(Farmer.getMovementSpeed)),
+            postfix: new HarmonyMethod(typeof(WalkRoute), nameof(WalkRoute.LimitArrivalStep)));
+        harmony.Patch(AccessTools.Method(typeof(Crop), nameof(Crop.harvest)),
+            prefix: new HarmonyMethod(typeof(NativeHooks), nameof(Harvest)) { priority = Priority.First });
         harmony.Patch(AccessTools.Method(typeof(Character), nameof(Character.GetToolLocation), new[] { typeof(bool) }), prefix: new HarmonyMethod(typeof(NativeHooks), nameof(ToolTarget)));
         foreach (var type in new[] { typeof(Axe), typeof(Pickaxe), typeof(Hoe), typeof(WateringCan) })
             harmony.Patch(AccessTools.Method(type, "DoFunction"), prefix: new HarmonyMethod(typeof(NativeHooks), nameof(Impact)));
@@ -25,7 +29,7 @@ internal static class NativeHooks
         {
             var method = AccessTools.DeclaredMethod(type, "performToolAction");
             if (method is not null && method.ReturnType == typeof(bool))
-                harmony.Patch(method, prefix: new HarmonyMethod(typeof(NativeHooks), nameof(Damage)));
+                harmony.Patch(method, prefix: new HarmonyMethod(typeof(NativeHooks), nameof(Damage)) { priority = Priority.First });
         }
         harmony.Patch(AccessTools.Method(typeof(Utility), "GetBestHarvestableFarmAnimal"), prefix: new HarmonyMethod(typeof(NativeHooks), nameof(ChooseAnimal)));
         harmony.Patch(AccessTools.Method(typeof(PetBowl), nameof(PetBowl.performToolAction)), prefix: new HarmonyMethod(typeof(NativeHooks), nameof(BowlImpact)));
@@ -45,6 +49,8 @@ internal static class NativeHooks
         }
         return true;
     }
+    private static bool Harvest(Crop __instance, int xTile, int yTile, HoeDirt soil)
+        => current?.Invoke().AllowHarvest(__instance, soil, xTile, yTile) ?? true;
     private static bool Impact(Tool __instance, GameLocation location, Farmer who) => current?.Invoke().AllowTool(__instance, who, location) ?? true;
     private static bool BowlImpact(PetBowl __instance, Tool t) => current?.Invoke().AllowEntity(__instance, t) ?? true;
     private static bool AnimalImpact(Tool __instance, GameLocation location, Farmer who)

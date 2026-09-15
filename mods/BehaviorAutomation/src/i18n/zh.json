@@ -90,5 +90,16 @@
   "action.PlaceObject": "围栏、火把、洒水器、机器 · 手持物品",
   "notice.materials": "放置材料不足。",
   "short.RemoveFloor": "拆除地板",
-  "action.RemoveFloor": "拆除地板、路径 · 手持斧头或镐子"
+  "action.RemoveFloor": "拆除地板、路径 · 手持斧头或镐子",
+  "config.move-cancel": "移动取消时间（秒）",
+  "config.diagonal": "允许斜向寻路",
+  "config.scythe-distance": "镰刀额外走位（格）",
+  "config.scythe-distance-tip": "在最近站位之外，再比较这段距离内的成片收割位置。",
+  "config.scythe-batch": "镰刀聚拢程度",
+  "config.scythe-batch-tip": "数值越高，越愿意多走几格以减少挥刀次数。",
+  "config.refill": "水壶自动补水",
+  "config.clearance": "允许清理挡路物",
+  "config.refresh": "目标复查间隔（秒）",
+  "config.completion": "完成前复查时间（秒）",
+  "config.completion-tip": "队列清空后继续检查的时间，用于发现后续动物交互等。"
 }

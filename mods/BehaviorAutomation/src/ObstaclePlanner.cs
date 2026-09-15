@@ -15,17 +15,10 @@ public sealed class ObstaclePlanner
         ActionKind.WildTree => config.Allows(ActionKind.TreeStump, target.Scope),
         _ => false
     };
-    public ObstaclePlanner(GameLocation map, Farmer who, IEnumerable<WorkTarget> goals, ModConfig config, ISet<object>? failed = null, bool smartPool = true, Func<WorkTarget, bool>? allowed = null)
+    public ObstaclePlanner(GameLocation map, Farmer who, IEnumerable<WorkTarget> goals, IEnumerable<WorkTarget> candidates, ModConfig config, ISet<object>? failed = null)
     {
-        var area = new Rectangle(0, 0, map.Map.Layers[0].LayerWidth, map.Map.Layers[0].LayerHeight);
         // One bounded world snapshot; no per-node scans of every inventory or entity.
-        var snapshot = smartPool
-            ? SmartSelection.Scan(map, who, ToolMode.Auto, null, area, config, obstacles: true)
-            : SmartSelection.Scan(map, who, ToolMode.Auto, null, area, config, obstacles: true, scope: WorkScope.Held)
-                .Concat(SmartSelection.Scan(map, who, ToolMode.Auto, null, area, config, obstacles: true, scope: WorkScope.LeftExtra));
-        var candidates = snapshot
-            .Where(t => allowed?.Invoke(t) != false && failed?.Contains(t.Entity) != true && WorldTargets.Unable(t, who, config) is null).ToArray();
-        foreach (var target in candidates)
+        foreach (var target in candidates.Where(t => failed?.Contains(t.Entity) != true && WorldTargets.Unable(t, who, config) is null))
             for (int y = target.Area.Top; y < target.Area.Bottom; y++)
                 for (int x = target.Area.Left; x < target.Area.Right; x++)
                 {
@@ -49,7 +42,7 @@ public sealed class ObstaclePlanner
                         continue;
                     blockers.TryAdd(p, target);
                 }
-        route = new(Cell.Of(who), goals, p => WorldTargets.CanStand(map, who, p), p => blockers.ContainsKey(p) ? 40 : null);
+        route = new(Cell.Of(who), goals, p => WorldTargets.CanStand(map, who, p), p => blockers.ContainsKey(p) ? 40 : null, settings: config);
     }
     public void Step() => route.Step();
     public WorkTarget? FirstObstacle()

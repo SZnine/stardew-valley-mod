@@ -162,6 +162,14 @@ public sealed partial class ModEntry : Mod
         Config.ReserveStamina = 10;
         Config.Enabled = true;
         Config.UseStoredTools = true;
+        Config.MovementCancelSeconds = .5f;
+        Config.AllowDiagonalMovement = true;
+        Config.ScytheSearchTiles = 12;
+        Config.ScytheSwingCost = 16;
+        Config.AutoRefillWateringCan = true;
+        Config.ClearObstacles = true;
+        Config.RefreshIntervalSeconds = .3f;
+        Config.CompletionDelaySeconds = 1.5f;
         notices.Clear();
         Who.addedSpeed = 0;
         Who.temporarySpeedBuff = 0;
@@ -238,6 +246,8 @@ public sealed partial class ModEntry : Mod
     private void Test()
     {
         CoreTests();
+        ToolRestrictionTests();
+        RoutingRegression();
         PlacementTests();
         RemoveFloorTests();
         WalkingInputTests();

@@ -48,7 +48,7 @@ public static class ScythePlanner
         finally { Game1.random = random; }
         return footprints[key] = result;
     }
-    public static Approach? AtStand(IEnumerable<WorkTarget> targets, Farmer who, MeleeWeapon tool, int? preferredFacing = null)
+    public static Approach? AtStand(IEnumerable<WorkTarget> targets, Farmer who, MeleeWeapon tool, int? preferredFacing = null, int minimumPreferredCoverage = int.MaxValue)
     {
         var list = targets.Where(t => t.Mode == ToolMode.Scythe && ReferenceEquals(t.Tool, tool)).ToArray();
         var at = Cell.Of(who);
@@ -60,9 +60,9 @@ public static class ScythePlanner
             if (hits.Length == 0)
                 continue;
             var plan = new Approach(hits[0], at, at.Add(Cell.Directions[face]).Center, face, hits.Length, hits.ToHashSet());
-            if (face == preferredFacing)
+            if (face == preferredFacing && hits.Length >= minimumPreferredCoverage)
                 return plan;
-            if (best is null || hits.Length > best.Coverage)
+            if (best is null || hits.Length > best.Coverage || hits.Length == best.Coverage && face == preferredFacing)
                 best = plan;
         }
         return best;

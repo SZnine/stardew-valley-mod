@@ -48,7 +48,7 @@ Copy-Item -LiteralPath (Join-Path $source 'manifest.json') -Destination $product
 Copy-Item -LiteralPath (Join-Path $source 'i18n') -Destination $product -Recurse
 Copy-Item -LiteralPath (Join-Path $tests 'bin/Release/net6.0/BehaviorProbe.dll') -Destination $probe
 
-$supported = @('spacechase0.GenericModConfigMenu', 'NCarigon.PassableCrops', 'sznine.SmartWateringCan')
+$supported = @('spacechase0.GenericModConfigMenu', 'NCarigon.PassableCrops', 'sznine.SmartWateringCan', 'bcmpinc.StardewHack', 'bcmpinc.HarvestWithScythe')
 $loaded = @()
 foreach ($path in $CompatibilityModPaths) {
     $origin = (Resolve-Path -LiteralPath $path).ProviderPath

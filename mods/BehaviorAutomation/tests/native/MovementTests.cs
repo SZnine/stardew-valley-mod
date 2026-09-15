@@ -77,7 +77,9 @@ public sealed partial class ModEntry
                     if (change.LengthSquared() > .01f && !route.Finished)
                     {
                         int actual = Math.Abs(change.X) > Math.Abs(change.Y) ? change.X > 0 ? 1 : 3 : change.Y > 0 ? 2 : 0;
-                        Assert(Who.FacingDirection == actual && !Who.UsingTool && !Who.FarmerSprite.PauseForSingleAnimation, "Animation/facing stuck during walking");
+                        bool diagonal = Math.Abs(change.X) > .01f && Math.Abs(change.Y) > .01f;
+                        bool facing = diagonal ? Who.FacingDirection == (change.X > 0 ? 1 : 3) || Who.FacingDirection == (change.Y > 0 ? 2 : 0) : Who.FacingDirection == actual;
+                        Assert(facing && !Who.UsingTool && !Who.FarmerSprite.PauseForSingleAnimation, "Animation/facing stuck during walking");
                     }
                 }
                 Assert(route.Finished && !route.Failed, "Directional walk did not finish");
@@ -94,6 +96,7 @@ public sealed partial class ModEntry
             while (!route.Finished && count++ < 400)
                 WalkFrame(route, 33);
             Assert(route.Finished && !route.Failed && Cell.Of(Who) == new Cell(27, 27), "Fast corner path oscillated");
+            Assert(Who.GetBoundingBox().Center == new Point(27 * 64 + 32, 27 * 64 + 32), "Final stance differs from planned tool geometry");
         });
         Check("manual walking and unrelated controllers remain unmodified", () =>
         {

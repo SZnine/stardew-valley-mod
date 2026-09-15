@@ -2,7 +2,7 @@ using StardewModdingAPI.Utilities;
 
 namespace Sznine.BehaviorAutomation;
 
-/// <summary>User choices only. Scheduling and geometry limits belong to WorkRules.</summary>
+/// <summary>User choices; hard safety and per-frame search limits belong to WorkRules.</summary>
 public sealed class ModConfig
 {
     public bool Enabled { get; set; } = true;
@@ -11,6 +11,14 @@ public sealed class ModConfig
     public KeybindList CancelKey { get; set; } = KeybindList.Parse("LeftShift, RightShift");
     public bool UseStoredTools { get; set; } = true;
     public float ReserveStamina { get; set; } = 10;
+    public float MovementCancelSeconds { get; set; } = .5f;
+    public bool AllowDiagonalMovement { get; set; } = true;
+    public int ScytheSearchTiles { get; set; } = 12;
+    public int ScytheSwingCost { get; set; } = 16;
+    public bool AutoRefillWateringCan { get; set; } = true;
+    public bool ClearObstacles { get; set; } = true;
+    public float RefreshIntervalSeconds { get; set; } = .3f;
+    public float CompletionDelaySeconds { get; set; } = 1.5f;
     // Serialized as Actions for backward compatibility; applies only to held-item work.
     public HashSet<ActionKind> Actions
     {
@@ -49,6 +57,11 @@ public sealed class ModConfig
         ActionMenuKey ??= KeybindList.Parse("F8");
         CancelKey ??= KeybindList.Parse("LeftShift, RightShift");
         ReserveStamina = float.IsFinite(ReserveStamina) ? Math.Clamp(ReserveStamina, 0, 100) : 10;
+        MovementCancelSeconds = float.IsFinite(MovementCancelSeconds) ? Math.Clamp(MovementCancelSeconds, .1f, 2) : .5f;
+        ScytheSearchTiles = Math.Clamp(ScytheSearchTiles, 2, 24);
+        ScytheSwingCost = Math.Clamp(ScytheSwingCost, 4, 32);
+        RefreshIntervalSeconds = float.IsFinite(RefreshIntervalSeconds) ? Math.Clamp(RefreshIntervalSeconds, .1f, 1) : .3f;
+        CompletionDelaySeconds = float.IsFinite(CompletionDelaySeconds) ? Math.Clamp(CompletionDelaySeconds, .3f, 3) : 1.5f;
         Actions ??= new();
         SmartActions ??= new();
         LeftActions ??= new();
@@ -75,7 +88,7 @@ public sealed class ModConfig
         }
         if (ConfigVersion < 7)
             Actions.Add(ActionKind.RemoveFloor);
-        ConfigVersion = 7;
+        ConfigVersion = 8;
     }
 }
 
@@ -83,9 +96,6 @@ internal static class WorkRules
 {
     public const int MaxSelectionSize = 64;
     public const int MaxJobs = 4096;
-    public const int MovementCancelDelayMs = 2000;
-    public const int CompletionDelayMs = 1500;
-    public const int RefreshMs = 300;
     public const int WildTreeSpacing = 2;
     public const int FruitTreeSpacing = 3;
 }

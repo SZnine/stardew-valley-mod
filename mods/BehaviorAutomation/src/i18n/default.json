@@ -90,5 +90,16 @@
   "action.PlaceObject": "Fences, torches, sprinklers, machines · Held item",
   "notice.materials": "No placement materials left.",
   "short.RemoveFloor": "Remove flooring",
-  "action.RemoveFloor": "Remove floors and paths · Held axe or pickaxe"
+  "action.RemoveFloor": "Remove floors and paths · Held axe or pickaxe",
+  "config.move-cancel": "Movement cancel delay (seconds)",
+  "config.diagonal": "Allow diagonal routes",
+  "config.scythe-distance": "Scythe extra travel (tiles)",
+  "config.scythe-distance-tip": "Compare grouped harvesting positions this far beyond the nearest stance.",
+  "config.scythe-batch": "Scythe batching preference",
+  "config.scythe-batch-tip": "Higher values favor walking a few more tiles to avoid extra swings.",
+  "config.refill": "Automatically refill the watering can",
+  "config.clearance": "Clear permitted obstacles",
+  "config.refresh": "Target rescan interval (seconds)",
+  "config.completion": "Final rescan time (seconds)",
+  "config.completion-tip": "Keep checking for follow-up interactions after the queue becomes empty."
 }

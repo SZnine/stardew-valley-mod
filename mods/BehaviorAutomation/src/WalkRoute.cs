@@ -7,6 +7,14 @@ namespace Sznine.BehaviorAutomation;
 /// <summary>Follow stable tile centers through native collision and movement; never set world position.</summary>
 public sealed class WalkRoute : PathFindController
 {
+    [ThreadStatic] private static Farmer? preciseOwner;
+    [ThreadStatic] private static float maximumStep;
+    // Only the final native movement call is capped, never ordinary walking or tool use.
+    internal static void LimitArrivalStep(Farmer __instance, ref float __result)
+    {
+        if (ReferenceEquals(__instance, preciseOwner))
+            __result = Math.Min(__result, maximumStep);
+    }
     private readonly Farmer owner;
     private readonly GameLocation map;
     private double blockedMilliseconds;
@@ -37,19 +45,22 @@ public sealed class WalkRoute : PathFindController
         owner.movementDirections.Clear();
         // The old full-body containment window was narrower than a long frame's movement step.
         // A speed-aware center tolerance cannot oscillate forever across that narrow window.
-        float tolerance = Math.Max(2, owner.getMovementSpeed() / 2 + 1);
+        float transitTolerance = Math.Max(2, owner.getMovementSpeed() / 2 + 1);
         var center = owner.GetBoundingBox().Center.ToVector2();
         while (pathToEndPoint.Count > 0)
         {
             var point = pathToEndPoint.Peek();
             var cell = new Cell(point.X, point.Y);
             var delta = cell.Center - center;
+            float tolerance = pathToEndPoint.Count == 1 ? 0 : transitTolerance;
             if (Math.Abs(delta.X) <= tolerance && Math.Abs(delta.Y) <= tolerance)
             {
                 pathToEndPoint.Pop();
                 continue;
             }
-            if (!WorldTargets.CanStand(map, owner, cell))
+            var from = Cell.Of(owner);
+            var step = new Cell(Math.Sign(cell.X - from.X), Math.Sign(cell.Y - from.Y));
+            if (!WorldTargets.CanStand(map, owner, cell) || !PathGeometry.OpenCorner(from, step, p => WorldTargets.CanStand(map, owner, p)))
             {
                 blockedMilliseconds += time.ElapsedGameTime.TotalMilliseconds;
                 return blockedMilliseconds > 350 && End(true);
@@ -61,12 +72,27 @@ public sealed class WalkRoute : PathFindController
                 else
                     owner.SetMovingLeft(true);
             }
-            else if (delta.Y > 0)
-                owner.SetMovingDown(true);
-            else
-                owner.SetMovingUp(true);
+            if (Math.Abs(delta.Y) > tolerance)
+            {
+                if (delta.Y > 0)
+                    owner.SetMovingDown(true);
+                else
+                    owner.SetMovingUp(true);
+            }
             var before = owner.Position;
-            owner.MovePosition(time, Game1.viewport, map);
+            var previousOwner = preciseOwner;
+            float previousStep = maximumStep;
+            try
+            {
+                if (pathToEndPoint.Count == 1)
+                {
+                    preciseOwner = owner;
+                    maximumStep = Math.Min(Math.Abs(delta.X) > tolerance ? Math.Abs(delta.X) : float.MaxValue,
+                        Math.Abs(delta.Y) > tolerance ? Math.Abs(delta.Y) : float.MaxValue);
+                }
+                owner.MovePosition(time, Game1.viewport, map);
+            }
+            finally { preciseOwner = previousOwner; maximumStep = previousStep; }
             blockedMilliseconds = Vector2.DistanceSquared(before, owner.Position) < .01f ? blockedMilliseconds + time.ElapsedGameTime.TotalMilliseconds : 0;
             return blockedMilliseconds > 1200 && End(true);
         }

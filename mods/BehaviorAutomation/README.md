@@ -1,82 +1,90 @@
-![行为学 · Behavior Automation](assets/header-1300x372.png)
+<p align="center"><a href="README.md"><strong>English</strong></a> · <a href="README.zh-CN.md">简体中文</a></p>
 
-# 行为学 · Behavior Automation
+![Behavior Automation](assets/header-1300x372.png)
 
-框选一片区域，让角色自动寻路，完成农活、采集、动物照料和农场改建。作业使用实际工具和材料，保留体力消耗与工具等级限制。
+<h1 align="center">Behavior Automation</h1>
+<p align="center">Select an area. Let your farmer take care of the routine.</p>
+<p align="center"><a href="https://github.com/SZnine/stardew-valley-mod/releases/tag/behavior-automation-v2.2.1">Download 2.2.1</a> · <a href="https://www.nexusmods.com/stardewvalley/mods/52289">Nexus Mods</a> · <a href="#controls">Controls</a> · <a href="docs/CHANGELOG.md">Changelog</a></p>
 
-## 使用
+Automate everyday farm work, animal care, and farm renovation by selecting an area. Your farmer walks to each task using your tools and materials, with normal energy costs and tool requirements.
 
-| 默认操作 | 功能 |
-| --- | --- |
-| Shift + 左键拖动 | 执行手持道具对应的行为，并加入左键全局行为 |
-| Shift + 右键拖动 | 根据目标智能选择可用工具 |
-| F8 | 打开图标行为面板 |
-| 再次按 Shift / 打开背包 / 持续移动两秒 | 取消当前任务 |
+## See it in action
 
-新选区替换旧任务。短暂手动移动时优先响应玩家，松开后继续作业。
+<table>
+<tr><th>Smart tool selection</th><th>Harvesting</th></tr>
+<tr>
+<td align="center" valign="top" width="50%"><img src="assets/demo-gifs/02-smart-tools.gif" alt="Selecting mixed debris, walking and switching tools" width="380"><br>Clear mixed debris with the tools you own.</td>
+<td align="center" valign="top" width="50%"><img src="assets/demo-gifs/01-scythe-harvest.gif" alt="Harvesting ripe wheat while leaving young crops intact" width="380"><br>Harvest ripe crops in groups; leave young crops intact.</td>
+</tr>
+<tr><th>Animal care</th><th>Watering &amp; refilling</th></tr>
+<tr>
+<td align="center" valign="top" width="50%"><img src="assets/demo-gifs/03-animal-care.gif" alt="Petting, milking, shearing and filling hay troughs" width="380"><br>Pet, milk, shear, and fill hay troughs.</td>
+<td align="center" valign="top" width="50%"><img src="assets/demo-gifs/04-water-refill.gif" alt="Charged watering with a trip to the pond to refill" width="380"><br>Use charged watering and refill at reachable water sources.</td>
+</tr>
+</table>
 
-## 功能
+## Controls
 
-- 开垦、播种、种树、浇水、收获成熟作物；种树预留间距。
-- 根据水壶等级与延伸附魔蓄力浇水，缺水时寻找当前地图内可达水源。
-- 采集物、果实、机器成品，以及杂草、牧草、石矿、树枝、树木与树桩处理。
-- 抚摸动物与宠物、挤奶、剪毛、添干草和给宠物水碗加水。
-- 铺设、拆除地板和路径，以及放置围栏、火把、洒水器、箱子和机器。
+| Default input | Action |
+| :--- | :--- |
+| **Shift + left-drag** | Use the selected tool or material, plus enabled left-click extra actions. |
+| **Shift + right-drag** | Choose suitable available tools from the smart action pool. |
+| **F8** | Open the action panel. |
+| **Press Shift again**, open inventory, or **move for 0.5 seconds** | Cancel the current work. |
 
-开垦、挖掘点、种植、放置和拆地板需要手持对应道具，通过左键框选执行。动物管理和贵重物品使用保留手动操作。单人游戏可借用仓库工具，用后归还；联机仅使用背包工具。
+Release the mouse button to start. A new selection replaces the previous one. Brief manual movement takes priority; work resumes when you stop moving.
 
-## 实机演示
+## What you can automate
 
-**日常照料**
+| Work | Included actions |
+| :--- | :--- |
+| **Crops & gathering** | Till soil, dig artifact spots, plant seeds and spaced trees, water, harvest mature crops, collect forage, fruit, moss, and machine output. |
+| **Clearing & mining** | Weeds, grass, dead crops, twigs, trees, stumps, stones, and large debris your tools can break. |
+| **Daily animal care** | Pet farm animals and pets, milk, shear, add hay, fill pet bowls, and collect produce. |
+| **Farm renovation** | Lay and remove floors or paths; place fences, torches, sprinklers, chests, and machines. |
 
-![框选后寻路并与宠物互动](assets/2026-09-14-16-38-30-web.gif)
+Tilling, digging spots, planting, placement, and floor removal require the corresponding held item and a left-click selection. Animal sales, relocation, renaming, and valuable treats remain manual.
+
+## Choose your actions
+
+The **F8** panel has three independent pages. Click an icon to toggle it; highlighted icons are enabled. Each page has **Select all** and **Clear**.
+
+| Page | Applies to |
+| :--- | :--- |
+| **Left held item** | Work performed with the selected tool, seed, or material. |
+| **Left extras** | Additional actions regardless of the held item; gathering and daily animal care are enabled by default. |
+| **Right tool pool** | Actions allowed to choose their tools automatically. |
+
+With [Generic Mod Config Menu](https://www.nexusmods.com/stardewvalley/mods/5098), configure hotkeys, movement cancellation, diagonal paths, scythe planning, refilling, obstacle clearing, stored tools, and energy reserve. The F8 panel works without it.
+
+## Install & update
+
+1. Install [SMAPI 4.5.2+](https://smapi.io/) for **Stardew Valley 1.6.15+**.
+2. Download the mod package and extract its **BehaviorAutomation** folder into the game's **Mods** folder.
+3. Launch through SMAPI. Generic Mod Config Menu is optional.
+
+To update, exit the game, keep `config.json`, and replace the old mod files.
 
 <details>
-<summary>农田作业</summary>
+<summary><strong>Tools, storage, and multiplayer</strong></summary>
 
-![农田区域的框选与作业](assets/2026-09-14-16-38-46-web.gif)
+Left-click base work keeps the selected tool, including when clearing a blocked route. Smart and extra actions can choose from your available tools. In single-player, tools can be borrowed from storage and returned after use; multiplayer uses backpack tools only.
 
 </details>
 
 <details>
-<summary>区域清理</summary>
+<summary><strong>Build from source</strong></summary>
 
-![选区内的寻路、换工具与清理](assets/2026-09-14-16-39-35-web.gif)
-
-</details>
-
-## 配置
-
-F8 面板包含三个独立页面：
-
-- **左键基础**：手持相应道具时允许执行的行为。
-- **左键全局**：不限制手持物，额外加入左键选区的行为。
-- **右键工具池**：右键框选时允许智能选择的行为。
-
-高亮表示启用，支持全选与清空，点击即保存。
-
-![图标行为面板](assets/actions-held.png)
-
-安装 [Generic Mod Config Menu](https://www.nexusmods.com/stardewvalley/mods/5098) 后，可以在游戏内修改快捷键、体力下限和仓库工具设置。
-
-## 安装与要求
-
-需要 **Stardew Valley 1.6.15+**、[SMAPI 4.5.2+](https://smapi.io/)。Generic Mod Config Menu 可选。
-
-解压成品包，将其中的 `BehaviorAutomation` 文件夹放入游戏 `Mods`，通过 SMAPI 启动。升级时退出游戏，保留 `config.json` 并覆盖旧版文件。
-
-当前验证环境为 Windows、Stardew Valley 1.6.15、SMAPI 4.5.2。
-
-## 从源码构建
-
-在仓库根目录运行：
+From the repository root, with a .NET SDK that supports `net6.0`:
 
 ```powershell
-./mods/BehaviorAutomation/build.ps1 -GamePath '你的 Stardew Valley 安装目录'
+./mods/BehaviorAutomation/build.ps1 -GamePath 'C:\Games\Stardew Valley'
 ```
 
-输出位于 `.artifacts/BehaviorAutomation/package/`。构建不会安装或启动游戏。
+Packages are written to `.artifacts/BehaviorAutomation/package/`.
 
-[完整使用说明](docs/USER-GUIDE.md) · [更新记录](docs/CHANGELOG.md) · [开发与测试](docs/DEVELOPMENT.md) · [MIT 许可](LICENSE)
+</details>
 
-感谢 ConcernedApe、SMAPI 与 Generic Mod Config Menu 的作者和维护者，以及提供测试与反馈的玩家。
+[User guide](docs/USER-GUIDE.md) · [Development & tests](docs/DEVELOPMENT.md) · [Report an issue](https://github.com/SZnine/stardew-valley-mod/issues) · [MIT license](LICENSE)
+
+Thanks to ConcernedApe, the SMAPI and Generic Mod Config Menu maintainers, and everyone who tests the mod and reports issues.

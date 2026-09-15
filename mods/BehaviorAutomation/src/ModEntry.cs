@@ -76,10 +76,19 @@ public sealed class ModEntry : Mod
         api.AddKeybindList(ModManifest, () => config.CancelKey, v => config.CancelKey = v, () => T("config.cancel"));
         api.AddBoolOption(ModManifest, () => config.UseStoredTools, v => config.UseStoredTools = v, () => T("config.stored-tools"), () => T("config.stored-tools-tip"));
         api.AddNumberOption(ModManifest, () => config.ReserveStamina, v => config.ReserveStamina = v, () => T("config.stamina"), min: 0, max: 100, interval: 1);
+        api.AddNumberOption(ModManifest, () => config.MovementCancelSeconds, v => config.MovementCancelSeconds = v, () => T("config.move-cancel"), min: .1f, max: 2, interval: .1f);
+        api.AddBoolOption(ModManifest, () => config.AllowDiagonalMovement, v => config.AllowDiagonalMovement = v, () => T("config.diagonal"));
+        api.AddNumberOption(ModManifest, () => config.ScytheSearchTiles, v => config.ScytheSearchTiles = (int)v, () => T("config.scythe-distance"), () => T("config.scythe-distance-tip"), min: 2, max: 24, interval: 1);
+        api.AddNumberOption(ModManifest, () => config.ScytheSwingCost, v => config.ScytheSwingCost = (int)v, () => T("config.scythe-batch"), () => T("config.scythe-batch-tip"), min: 4, max: 32, interval: 1);
+        api.AddBoolOption(ModManifest, () => config.AutoRefillWateringCan, v => config.AutoRefillWateringCan = v, () => T("config.refill"));
+        api.AddBoolOption(ModManifest, () => config.ClearObstacles, v => config.ClearObstacles = v, () => T("config.clearance"));
+        api.AddNumberOption(ModManifest, () => config.RefreshIntervalSeconds, v => config.RefreshIntervalSeconds = v, () => T("config.refresh"), min: .1f, max: 1, interval: .1f);
+        api.AddNumberOption(ModManifest, () => config.CompletionDelaySeconds, v => config.CompletionDelaySeconds = v, () => T("config.completion"), () => T("config.completion-tip"), min: .3f, max: 3, interval: .1f);
     }
 
     private void SaveConfig()
     {
+        Reset();
         config.Normalize();
         Helper.WriteConfig(config);
     }

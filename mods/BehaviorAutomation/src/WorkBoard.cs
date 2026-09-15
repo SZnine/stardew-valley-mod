@@ -65,16 +65,16 @@ public sealed class WorkBoard
         return (added, removed);
     }
 
-    private List<WorkTarget> Scan(Farmer who, ModConfig config)
+    private List<WorkTarget> Scan(Farmer who, ModConfig config, Rectangle? area = null, bool obstacles = false)
     {
         if (selection is not { } s || Location is null)
             return new();
         if (s.Smart)
-            return SmartSelection.Scan(Location, who, s.Mode, s.Tool, s.Area, config);
-        var targets = SmartSelection.ScanLeft(Location, who, s.Tool, s.Area, config);
+            return SmartSelection.Scan(Location, who, s.Mode, s.Tool, area ?? s.Area, config, obstacles);
+        var targets = SmartSelection.ScanLeft(Location, who, s.Tool, area ?? s.Area, config);
         if (s.Mode is not (ToolMode.Hand or ToolMode.Auto or ToolMode.Seeds or ToolMode.TreeSeeds or ToolMode.Place) || s.Mode == ToolMode.Hand && LastSelectedItem is null)
         {
-            var held = WorldTargets.Scan(Location, who, s.Mode, s.Tool, s.Area, config);
+            var held = WorldTargets.Scan(Location, who, s.Mode, s.Tool, area ?? s.Area, config, includeTill: !obstacles);
             // Prefer the selected tool for the same task, keeping distinct follow-up actions.
             targets.RemoveAll(t => held.Any(h => ReferenceEquals(h.Entity, t.Entity) && h.Kind == t.Kind));
             targets.AddRange(held);
@@ -84,7 +84,15 @@ public sealed class WorkBoard
 
     public bool AllowsObstacle(WorkTarget target, ModConfig config) => selection is { } s
         && config.Allows(target.Kind, target.Scope)
-        && (s.Smart ? target.Scope == WorkScope.Smart : target.Scope == WorkScope.LeftExtra || target.Mode == s.Mode);
+        && (s.Smart ? target.Scope == WorkScope.Smart : target.Scope == WorkScope.LeftExtra
+            || target.Scope == WorkScope.Held && target.Mode == s.Mode && ReferenceEquals(target.Tool, s.Tool));
+
+    // Clearance uses exactly the same held-tool/extra/smart selection rules as the selected area.
+    // Scanning all stored tools here used to silently upgrade a left basic task's tool.
+    public IEnumerable<WorkTarget> ObstacleCandidates(Farmer who, ModConfig config) => Location is null
+        ? Enumerable.Empty<WorkTarget>()
+        : Scan(who, config, new(0, 0, Location.Map.Layers[0].LayerWidth, Location.Map.Layers[0].LayerHeight), obstacles: true)
+            .Where(t => AllowsObstacle(t, config) && ObstaclePlanner.Removable(t, config));
 
     private int Add(IEnumerable<WorkTarget> targets)
     {

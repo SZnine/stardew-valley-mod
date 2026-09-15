@@ -110,7 +110,9 @@ public sealed class RefillSearch
     private readonly Farmer who;
     private readonly GameLocation map;
     private readonly WorkTarget work;
-    private readonly Queue<Cell> frontier = new();
+    private readonly PriorityQueue<Cell, int> frontier = new();
+    private readonly Dictionary<Cell, int> costs = new();
+    private readonly bool diagonal;
     private readonly Dictionary<Cell, Cell> parents = new();
     private readonly HashSet<Cell> examined = new();
     private readonly Cell start;
@@ -124,13 +126,15 @@ public sealed class RefillSearch
     }
     public int Visited => examined.Count;
 
-    public RefillSearch(Farmer who, WorkTarget work)
+    public RefillSearch(Farmer who, WorkTarget work, bool diagonal = true)
     {
         this.who = who;
         map = who.currentLocation;
         this.work = work;
+        this.diagonal = diagonal;
         start = Cell.Of(who);
-        frontier.Enqueue(start);
+        frontier.Enqueue(start, 0);
+        costs[start] = 0;
         parents[start] = start;
         examined.Add(start);
     }
@@ -139,8 +143,9 @@ public sealed class RefillSearch
     {
         if (Finished)
             return;
-        for (int i = 0; i < budget && frontier.TryDequeue(out var stand); i++)
+        for (int i = 0; i < budget && frontier.TryDequeue(out var stand, out int cost); i++)
         {
+            if (costs[stand] != cost) continue;
             for (int facing = 0; facing < 4; facing++)
             {
                 var water = stand.Add(Cell.Directions[facing]);
@@ -164,13 +169,17 @@ public sealed class RefillSearch
                     return;
                 }
             }
-            foreach (var delta in Cell.Directions)
+            foreach (var delta in diagonal ? PathGeometry.Neighbors : Cell.Directions)
             {
                 var next = stand.Add(delta);
-                if (!examined.Add(next) || !WorldTargets.CanStand(map, who, next))
+                if (!PathGeometry.OpenCorner(stand, delta, p => WorldTargets.CanStand(map, who, p)) || !WorldTargets.CanStand(map, who, next))
                     continue;
+                examined.Add(next);
+                int total = cost + PathGeometry.Cost(delta);
+                if (costs.TryGetValue(next, out int previous) && previous <= total) continue;
+                costs[next] = total;
                 parents[next] = stand;
-                frontier.Enqueue(next);
+                frontier.Enqueue(next, total);
             }
             if (examined.Count >= 32768)
             {

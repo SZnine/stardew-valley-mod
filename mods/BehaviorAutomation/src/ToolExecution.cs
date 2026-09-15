@@ -53,7 +53,8 @@ public sealed partial class WorkController
         if (next.Target.Mode == ToolMode.Scythe && next.Target.Tool is MeleeWeapon scythe)
         {
             // Native walking stops within a few pixels of the tile center. Recheck the actual sweep after arrival.
-            var live = ScythePlanner.AtStand(Board.Jobs.Where(t => WorldTargets.Pending(who.currentLocation, t, config())), who, scythe, next.Facing);
+            var live = ScythePlanner.AtStand(Board.Jobs.Where(t => WorldTargets.Pending(who.currentLocation, t, config()) && WorldTargets.Unable(t, who, config()) is null),
+                who, scythe, next.Facing, next.Coverage > 1 ? next.Coverage : int.MaxValue);
             if (live is null)
             {
                 Retry(next.Target);

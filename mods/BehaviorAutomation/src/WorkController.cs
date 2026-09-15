@@ -129,7 +129,7 @@ public sealed partial class WorkController
         }
         ManualMovement = true;
         movementMilliseconds += Math.Clamp(milliseconds, 0, 100);
-        if (movementMilliseconds >= WorkRules.MovementCancelDelayMs)
+        if (movementMilliseconds >= config().MovementCancelSeconds * 1000d)
             Clear();
     }
     public void Abandon()
@@ -204,7 +204,8 @@ public sealed partial class WorkController
         if (tool is WateringCan)
             return Approved(Watering.Valid(op.Approach, Board, who, config()) && who.toolPower.Value == op.Approach.Power);
         if (op.Approach.Target.Mode == ToolMode.Scythe)
-            return Approved(Board.Jobs.Any(t => t.Mode == ToolMode.Scythe && WorldTargets.Pending(map, t, config()) && WorldTargets.Unable(t, who, config()) is null));
+            return Approved((op.Approach.Hits ?? new() { op.Approach.Target }).Any(t => Board.Jobs.Contains(t)
+                && WorldTargets.Pending(map, t, config()) && WorldTargets.Unable(t, who, config()) is null));
         return Approved(WorldTargets.Pending(map, op.Approach.Target, config()) && WorldTargets.Unable(op.Approach.Target, who, config()) is null);
     }
     public bool AllowEntity(object entity, Tool? tool)
@@ -213,12 +214,27 @@ public sealed partial class WorkController
             return true;
         if (owner?.currentLocation != Board.Location || op.Generation != Board.Generation || !op.ImpactApproved)
             return false;
+        if (!ToolRequirements.Allows(entity, tool, duringImpact: true))
+            return false;
         bool Matches(object selected) => ReferenceEquals(entity, selected) || selected is IndoorPot pot && ReferenceEquals(entity, pot.hoeDirt.Value);
         // Native DoFunction pays stamina before calling each entity. Affordability was checked
         // once in AllowTool; checking it again here would charge without applying the action.
         return Board.Jobs.Any(t => t.Mode == op.Approach.Target.Mode && Matches(t.Entity) && WorldTargets.Pending(Board.Location!, t, config()));
     }
     public FarmAnimal? SelectedAnimal(Tool tool) => Active is { } op && ReferenceEquals(tool, op.Approach.Target.Tool) ? op.Approach.Target.Entity as FarmAnimal : null;
+    // Some harvest mods enter Crop.harvest directly. Guard the final native entry point too,
+    // scoped to our exact scythe operation; never intercept ordinary manual harvesting.
+    internal bool AllowHarvest(Crop crop, HoeDirt soil, int x, int y)
+    {
+        if (Active is not { } op || op.Approach.Target.Mode != ToolMode.Scythe || owner is null
+            || owner != Game1.player || !ReferenceEquals(owner.CurrentTool, op.Approach.Target.Tool))
+            return true;
+        return op.Generation == Board.Generation && WorldTargets.HarvestReady(crop) && ReferenceEquals(soil.crop, crop)
+            && Board.Location == owner.currentLocation && Board.Jobs.Any(t => t.Mode == ToolMode.Scythe
+                && t.Kind == ActionKind.HarvestCrop && t.Origin == new Cell(x, y)
+                && (ReferenceEquals(t.Entity, soil) || t.Entity is IndoorPot pot && ReferenceEquals(pot.hoeDirt.Value, soil))
+                && WorldTargets.Pending(owner.currentLocation, t, config()));
+    }
     public void Tick(Farmer who, double milliseconds, bool eligible)
     {
         owner = who;
@@ -230,7 +246,7 @@ public sealed partial class WorkController
             {
                 Board.Prune(config());
                 Board.Refresh(who, config());
-                refreshIn = WorkRules.RefreshMs;
+                refreshIn = config().RefreshIntervalSeconds * 1000d;
                 emptyPasses = Board.Jobs.Count == 0 && Active is null ? emptyPasses + 1 : 0;
             }
             quietMilliseconds = Board.Jobs.Count > 0 || Active is not null ? 0 : quietMilliseconds + milliseconds;
@@ -251,13 +267,20 @@ public sealed partial class WorkController
             if (!who.UsingTool && (op.SawUsing || op.Elapsed > 120))
             {
                 var t = op.Approach.Target;
-                Active = null;
-                ReturnTool();
                 if (op.Generation != Board.Generation)
+                {
+                    Active = null;
+                    ReturnTool();
                     return;
-                foreach (var gathered in op.Gather)
-                    if (Board.Location == who.currentLocation && Board.Jobs.Contains(gathered) && WorldTargets.Pending(who.currentLocation, gathered, config()))
-                        WorldTargets.Gather(who.currentLocation, who, gathered);
+                }
+                // Keep the owned-operation harvest guard through deferred crop collection.
+                try
+                {
+                    foreach (var gathered in op.Gather)
+                        if (Board.Location == who.currentLocation && Board.Jobs.Contains(gathered) && WorldTargets.Pending(who.currentLocation, gathered, config()))
+                            WorldTargets.Gather(who.currentLocation, who, gathered);
+                }
+                finally { Active = null; ReturnTool(); }
                 if (Board.Location == who.currentLocation && WorldTargets.Pending(who.currentLocation, t, config()))
                 {
                     if (Math.Abs(WorldTargets.Progress(t) - op.Before) < .001 && ++t.FailedActions >= 3)
@@ -303,7 +326,7 @@ public sealed partial class WorkController
         if (Board.Jobs.Count == 0)
         {
             StopPath();
-            if (State != "idle" && Board.HasSelection && (emptyPasses < 2 || quietMilliseconds < WorkRules.CompletionDelayMs))
+            if (State != "idle" && Board.HasSelection && (emptyPasses < 2 || quietMilliseconds < config().CompletionDelaySeconds * 1000d))
             {
                 State = "checking";
                 return;
@@ -455,9 +478,9 @@ public sealed partial class WorkController
             if (candidates.Count == 0)
             {
                 var thirsty = Board.Jobs.FirstOrDefault(t => WorldTargets.Unable(t, who, config()) == "water");
-                if (thirsty is not null)
+                if (thirsty is not null && config().AutoRefillWateringCan)
                 {
-                    refillSearch = new(who, thirsty);
+                    refillSearch = new(who, thirsty, config().AllowDiagonalMovement);
                     State = "refill-planning";
                     return;
                 }
@@ -468,7 +491,7 @@ public sealed partial class WorkController
             if (Board.OrderedPlanting && !candidates.Any(t => t.IsObstacle))
                 candidates = candidates.Take(1).ToList();
             routeCandidates = candidates;
-            search = new(Cell.Of(who), candidates, p => WorldTargets.CanStand(who.currentLocation, who, p), scytheFarmer: who, scytheStreak: scytheStreak, waterPlans: Board.Area is { } area ? Watering.Approaches(candidates, who, area, config()) : null);
+            search = new(Cell.Of(who), candidates, p => WorldTargets.CanStand(who.currentLocation, who, p), scytheFarmer: who, scytheStreak: scytheStreak, waterPlans: Board.Area is { } area ? Watering.Approaches(candidates, who, area, config()) : null, settings: config());
         }
         State = "planning";
         search.Step();
@@ -477,9 +500,9 @@ public sealed partial class WorkController
         if (search.Result is null)
         {
             search = null;
-            if (!Board.Jobs.Any(t => t.IsObstacle))
+            if (config().ClearObstacles && !Board.Jobs.Any(t => t.IsObstacle))
             {
-                clearance = new(who.currentLocation, who, routeCandidates!, config(), failedObstacles, Board.Smart, t => Board.AllowsObstacle(t, config()));
+                clearance = new(who.currentLocation, who, routeCandidates!, Board.ObstacleCandidates(who, config()), config(), failedObstacles);
                 return;
             }
             SkipUnreachable();

@@ -1,7 +1,7 @@
-# 素材
+# Media
 
-- `header-1300x372.png`：AI 辅助制作的宣传插画。
-- `2026-09-14-*-web.gif`：作者提供的实机录制，经过裁剪和压缩。
-- `actions-*.png`：模组菜单的原生渲染截图。
+- `header-1300x372.png`: promotional banner.
+- `demo-gifs/*.gif`: Stardew Valley 1.6.15 footage recorded with Behavior Automation 2.2.0, cropped and compressed at normal playback speed.
+- `actions-*.png`: native menu screenshots used by the Chinese user guide.
 
-游戏画面中的原有美术资源属于其各自作者；源码的 MIT 许可不授予这些游戏资源的额外权利。
+Stardew Valley artwork © ConcernedApe. Source code: MIT.

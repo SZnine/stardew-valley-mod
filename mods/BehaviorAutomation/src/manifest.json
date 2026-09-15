@@ -1,7 +1,7 @@
 {
   "Name": "行为学",
   "Author": "sznine",
-  "Version": "2.1.1",
+  "Version": "2.2.1",
   "Description": "框选自动作业，图标选择行为，自动配工具、蓄力浇水与补水。",
   "UniqueID": "sznine.BehaviorAutomation",
   "EntryDll": "BehaviorAutomation.dll",

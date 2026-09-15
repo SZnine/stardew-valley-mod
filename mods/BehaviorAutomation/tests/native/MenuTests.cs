@@ -46,13 +46,13 @@ public sealed partial class ModEntry
             Assert(ActionCatalog.All.Select(a => a.Kind).Distinct().Count() == Enum.GetValues<ActionKind>().Length, "Missing action icon");
             Assert(ActionCatalog.SmartKinds.Count() == 22 && !ActionCatalog.CanSelectSmart(ActionKind.Till) && !ActionCatalog.CanSelectSmart(ActionKind.PlantCrop), "Unsafe smart pool catalog");
         });
-        CheckWithMod("spacechase0.GenericModConfigMenu", "GMCM has only six settings and setters persist", () =>
+        CheckWithMod("spacechase0.GenericModConfigMenu", "GMCM exposes fourteen relevant settings and setters persist", () =>
         {
             var gmcm = Installed<object>("spacechase0.GenericModConfigMenu");
             var manager = AccessTools.Field(gmcm.GetType(), "ConfigManager").GetValue(gmcm)!;
             var setup = AccessTools.Method(manager.GetType(), "Get").Invoke(manager, new object[] { Behavior.ModManifest, false })!;
             var options = ((IEnumerable)AccessTools.Method(setup.GetType(), "GetAllOptions").Invoke(setup, null)!).Cast<object>().ToArray();
-            Assert(options.Length == 6, "Legacy configuration remains: " + options.Length);
+            Assert(options.Length == 14, "Missing operational configuration: " + options.Length);
             foreach (var option in options)
             {
                 var value = AccessTools.Property(option.GetType(), "Value");
@@ -69,7 +69,7 @@ public sealed partial class ModEntry
             var legacy = new ModConfig { ConfigVersion = 3, ReserveStamina = 27, UseStoredTools = false, SelectKey = KeybindList.Parse("LeftControl") };
             legacy.Actions.Remove(ActionKind.WildTree);
             legacy.Migrate();
-            Assert(legacy.ConfigVersion == 7 && !legacy.Allows(ActionKind.WildTree) && !legacy.Allows(ActionKind.WildTree, WorkScope.Smart) && legacy.ReserveStamina == 27 && !legacy.UseStoredTools && legacy.SelectKey.ToString() == "LeftControl", "Migration changed user choices");
+            Assert(legacy.ConfigVersion == 8 && !legacy.Allows(ActionKind.WildTree) && !legacy.Allows(ActionKind.WildTree, WorkScope.Smart) && legacy.ReserveStamina == 27 && !legacy.UseStoredTools && legacy.SelectKey.ToString() == "LeftControl", "Migration changed user choices");
         });
         Check("native action menu switches all three pools and saves immediately", () =>
         {
@@ -135,20 +135,20 @@ public sealed partial class ModEntry
             Buttons(CursorAtTile(28, 20), SButton.LeftShift);
             Assert(!Control.Board.HasSelection && Who.controller is null, "Cancel did not clear region");
         });
-        Check("held movement yields immediately and cancels only after two continuous seconds", () =>
+        Check("held movement yields immediately and cancels after half a continuous second", () =>
         {
             CropAt(31, 20);
             SelectModern(new WateringCan { WaterLeft = 30 }, new(31, 20, 1, 1));
             Until(() => Who.controller is not null);
             Control.ObserveMovement(Who, true, 16);
             Assert(Who.controller is null && Control.Board.HasSelection, "Movement could not take over");
-            for (int i = 0; i < 60; i++)
+            for (int i = 0; i < 20; i++)
                 Control.ObserveMovement(Who, true, 16);
             Control.ObserveMovement(Who, false, 16);
             Assert(Control.Board.HasSelection, "Short movement canceled work");
-            for (int i = 0; i < 126; i++)
+            for (int i = 0; i < 32; i++)
                 Control.ObserveMovement(Who, true, 16);
-            Assert(!Control.Board.HasSelection, "Two-second movement did not cancel");
+            Assert(!Control.Board.HasSelection, "Half-second movement did not cancel");
         });
         Check("opening inventory cancels work and old F9 shortcut has no action", () =>
         {

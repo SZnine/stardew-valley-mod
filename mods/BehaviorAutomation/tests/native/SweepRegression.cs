@@ -12,6 +12,7 @@ public sealed partial class ModEntry
 {
     private static int immatureHarvests, petAttempts;
     private static FarmAnimal? retryAnimal;
+    private readonly List<object> swingTrace = new();
     private static void ObserveHarvest(Crop __instance)
     {
         if (!__instance.dead.Value && (__instance.currentPhase.Value < __instance.phaseDays.Count - 1 || __instance.fullyGrown.Value && __instance.dayOfCurrentPhase.Value > 0))
@@ -34,12 +35,14 @@ public sealed partial class ModEntry
     private int FinishCountingSwings()
     {
         int swings = 0;
+        swingTrace.Clear();
         Operation? last = null;
         Until(() =>
         {
             if (Control.Active is { } op && !ReferenceEquals(op, last))
             {
                 swings++;
+                swingTrace.Add(new { op.Approach.Stand, op.Approach.Facing, op.Approach.Coverage, Remaining = Control.Board.Jobs.Count, Position = Who.Position.ToString() });
                 last = op;
             }
             return Control.State == "idle" && Control.Active is null;
@@ -62,13 +65,14 @@ public sealed partial class ModEntry
                 Select(scythe, 23, 20, 6, 4);
                 int swings = FinishCountingSwings();
                 Assert(crops.All(c => c.crop is null), "Unharvested batch " + id);
-                Assert(swings > 0 && swings <= 12, "Scythe still works one target at a time: " + id + " swings=" + swings);
+                Assert(swings > 0 && swings <= 2, "Scythe fragmented a two-sweep bed: " + id + " swings=" + swings);
                 Assert(Who.Stamina == 1000, "Scythe consumed stamina");
                 metrics.Add(new
                 {
                     Scythe = id,
                     SelectedCrops = 24,
                     Swings = swings
+                    , Trace = swingTrace.ToArray()
                 });
             }
             File.WriteAllText(Path.Combine(Evidence, "scythe-metrics.json"), System.Text.Json.JsonSerializer.Serialize(metrics));

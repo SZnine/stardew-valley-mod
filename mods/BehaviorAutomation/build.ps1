@@ -21,7 +21,7 @@ foreach ($language in @('default', 'zh')) {
     Copy-Item -LiteralPath (Join-Path $source "i18n/$language.json") -Destination (Join-Path $product 'i18n') -Force
 }
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'LICENSE') -Destination $product -Force
-$guide = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'docs/USER-GUIDE.md'))
+$guide = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'docs/USER-GUIDE.zh-CN.md'))
 $guide = [regex]::Replace($guide, '(?m)^!\[.*?\]\(.*?\)\r?\n', '')
 [IO.File]::WriteAllText((Join-Path $product '使用说明.md'), $guide, [Text.UTF8Encoding]::new($false))
 

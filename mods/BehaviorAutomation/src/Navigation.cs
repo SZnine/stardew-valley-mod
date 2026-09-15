@@ -26,6 +26,8 @@ public sealed class RouteSearch
     private readonly Func<Cell, int?>? clearanceCost;
     private readonly Cell start;
     private readonly bool batch;
+    private readonly bool diagonal;
+    private readonly int lookahead, swingCost;
     private int firstGoalCost = -1;
     private double bestScore = double.MaxValue;
     public bool Finished
@@ -37,12 +39,15 @@ public sealed class RouteSearch
         get; private set;
     }
     public int Visited => previous.Count;
-    public RouteSearch(Cell start, IEnumerable<WorkTarget> targets, Func<Cell, bool> canStand, Func<Cell, int?>? clearanceCost = null, Farmer? scytheFarmer = null, int scytheStreak = 0, IEnumerable<Approach>? waterPlans = null)
+    public RouteSearch(Cell start, IEnumerable<WorkTarget> targets, Func<Cell, bool> canStand, Func<Cell, int?>? clearanceCost = null, Farmer? scytheFarmer = null, int scytheStreak = 0, IEnumerable<Approach>? waterPlans = null, ModConfig? settings = null)
     {
         this.start = start;
         this.canStand = canStand;
         this.clearanceCost = clearanceCost;
         this.scytheStreak = scytheStreak;
+        diagonal = settings?.AllowDiagonalMovement ?? true;
+        lookahead = settings?.ScytheSearchTiles ?? 12;
+        swingCost = settings?.ScytheSwingCost ?? 16;
         frontier.Enqueue(start, (0, 0, enqueueOrder++));
         previous[start] = start;
         distance[start] = 0;
@@ -102,7 +107,7 @@ public sealed class RouteSearch
             int cost = priority.Cost;
             if (distance[at] != cost || turns[at] != priority.Turns)
                 continue;
-            if (batch && firstGoalCost >= 0 && cost > firstGoalCost + 10)
+            if (batch && firstGoalCost >= 0 && cost > firstGoalCost + lookahead * 10)
             {
                 Complete();
                 return;
@@ -122,7 +127,7 @@ public sealed class RouteSearch
                     // one-target actions like petting, milk, watering or collecting a machine.
                     if (goal.Target.Kind == ActionKind.Water && goal.Target.Entity is not WaterSource && goal.Hits is not null)
                     {
-                        double value = (cost + 8d + goal.Power * 3) / goal.Coverage;
+                        double value = (cost / 10d + 8 + goal.Power * 3) / goal.Coverage;
                         if (value < waterScore)
                         {
                             waterScore = value;
@@ -142,7 +147,7 @@ public sealed class RouteSearch
                     }
                     // A full native swing costs more than a few walking tiles. Avoid cheap edge swings
                     // that leave a nearby cluster to be approached and swung at again.
-                    double score = (cost + 16d) / goal.Coverage;
+                    double score = (cost / 10d + swingCost) / goal.Coverage;
                     if (score < bestScore)
                     {
                         bestScore = score;
@@ -151,10 +156,12 @@ public sealed class RouteSearch
                     if (goal.Hits is not null)
                         reached.Add((goal, cost));
                 }
-            foreach (var direction in Cell.Directions)
+            foreach (var direction in diagonal ? PathGeometry.Neighbors : Cell.Directions)
             {
                 var next = at.Add(direction);
-                int? step = CanWalk(next) ? 1 : clearanceCost?.Invoke(next);
+                if (!PathGeometry.OpenCorner(at, direction, CanWalk))
+                    continue;
+                int? step = CanWalk(next) ? PathGeometry.Cost(direction) : PathGeometry.Diagonal(direction) ? null : clearanceCost?.Invoke(next) * 10;
                 if (step is null)
                     continue;
                 int total = cost + step.Value;
@@ -179,7 +186,7 @@ public sealed class RouteSearch
     private void Complete()
     {
         Finished = true;
-        if (nearestWater is not null && (nearestOther is null || waterCost + 2 < nearestOtherCost))
+        if (nearestWater is not null && (nearestOther is null || waterCost + 20 < nearestOtherCost))
         {
             nearestOther = nearestWater;
             nearestOtherCost = waterCost;
@@ -196,7 +203,16 @@ public sealed class RouteSearch
         }
         // Bounded two-swing lookahead: account for the leftover shape, not just the first swing.
         // Only already reachable stands are considered; the next route is still verified afresh.
-        var shortlist = reached.OrderBy(p => (p.Cost + 16d) / p.Plan.Coverage).Take(48).ToArray();
+        // Keep distinct coverage sets: many equivalent stances around the first cluster must
+        // not crowd all useful second swings out of the bounded lookahead.
+        var shortlist = new List<(Approach Plan, int Cost)>();
+        foreach (var candidate in reached.OrderBy(p => (p.Cost / 10d + swingCost) / p.Plan.Coverage))
+        {
+            if (shortlist.Any(p => ReferenceEquals(p.Plan.Target.Tool, candidate.Plan.Target.Tool) && p.Plan.Hits!.SetEquals(candidate.Plan.Hits!)))
+                continue;
+            shortlist.Add(candidate);
+            if (shortlist.Count == 64) break;
+        }
         double best = double.MaxValue;
         Approach? chosen = null;
         foreach (var (first, cost) in shortlist)
@@ -205,7 +221,7 @@ public sealed class RouteSearch
                 continue;
             if (first.Coverage == scytheTargets)
             {
-                double score = (cost + 16d) / scytheTargets;
+                double score = (cost / 10d + swingCost) / scytheTargets;
                 if (score < best)
                 {
                     best = score;
@@ -221,8 +237,8 @@ public sealed class RouteSearch
                 if (extra == 0)
                     continue;
                 int covered = first.Coverage + extra, left = scytheTargets - covered;
-                int travel = Math.Abs(first.Stand.X - second.Stand.X) + Math.Abs(first.Stand.Y - second.Stand.Y);
-                double score = (cost + 32d + travel + (first.Coverage == 1 ? 12 : 0) + (extra == 1 ? 12 : 0) + (left == 1 ? 16 : 0)) / covered;
+                double travel = diagonal ? PathGeometry.Distance(first.Stand, second.Stand) : Math.Abs(first.Stand.X - second.Stand.X) + Math.Abs(first.Stand.Y - second.Stand.Y);
+                double score = (cost / 10d + swingCost * 2 + travel + (first.Coverage == 1 ? 12 : 0) + (extra == 1 ? 12 : 0) + (left == 1 ? 16 : 0)) / covered;
                 if (score < best)
                 {
                     best = score;
@@ -241,7 +257,7 @@ public sealed class RouteSearch
         // An adjacent task wins over a dense patch. After repeated sweeps, allow a small
         // additional detour so nearby other work doesn't wait for the entire weed layer.
         int allowance = 2 + Math.Min(3, scytheStreak) * 2;
-        if (nearestOtherCost <= distance[Result.Stand] + allowance)
+        if (nearestOtherCost <= distance[Result.Stand] + allowance * 10)
             Result = nearestOther;
     }
     private bool CanWalk(Cell p)

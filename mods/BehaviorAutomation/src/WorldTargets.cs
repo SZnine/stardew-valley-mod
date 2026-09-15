@@ -21,11 +21,13 @@ public static class WorldTargets
     };
     public static IEnumerable<ResourceClump> Clumps(GameLocation map) => map.resourceClumps;
     private static HoeDirt? Soil(object entity) => entity as HoeDirt ?? (entity as IndoorPot)?.hoeDirt.Value;
-    private static bool Harvestable(HoeDirt soil, ToolMode mode, Tool? tool) => soil.crop is { } crop && crop.phaseDays.Count > 0
-        && crop.currentPhase.Value >= crop.phaseDays.Count - 1 && (!crop.fullyGrown.Value || crop.dayOfCurrentPhase.Value <= 0)
-        && soil.readyForHarvest() && !crop.dead.Value
-        && !(soil.crop!.forageCrop.Value && soil.crop.whichForageCrop.Value == "2")
-        && (mode == ToolMode.Scythe || soil.crop.GetHarvestMethod() == HarvestMethod.Grab);
+    internal static bool HarvestReady(Crop crop) => !crop.dead.Value && (crop.forageCrop.Value
+        ? crop.whichForageCrop.Value == "1"
+        : crop.phaseDays.Count > 0 && crop.currentPhase.Value >= crop.phaseDays.Count - 1
+            && (!crop.fullyGrown.Value || crop.dayOfCurrentPhase.Value <= 0));
+    private static bool Harvestable(HoeDirt soil, ToolMode mode, Tool? tool) => soil.crop is { } crop
+        && HarvestReady(crop) && soil.readyForHarvest()
+        && (mode == ToolMode.Scythe || crop.GetHarvestMethod() == HarvestMethod.Grab);
     private static bool FloorCovered(GameLocation map, Cell at) => map.Objects.ContainsKey(at.Tile)
         || map.buildings.Any(b => b.occupiesTile(at.Tile))
         || map.furniture.Any(f => f.GetBoundingBox().Intersects(new Rectangle(at.X * 64, at.Y * 64, 64, 64)));
@@ -233,7 +235,18 @@ public static class WorldTargets
                 Harvest(pot.hoeDirt.Value);
                 break;
             default:
-                map.checkAction(new xTile.Dimensions.Location(target.Origin.X, target.Origin.Y), Game1.viewport, who);
+                // This is the pickup after an already-completed swing. A still-held scythe
+                // lets Harvest With Scythe convert checkAction into another, unowned swing.
+                // Native stowing hides the held item without creating a temporary inventory hole
+                // which the pickup could fill and then lose when the tool is restored.
+                bool stowed = who.netItemStowed.Value;
+                try
+                {
+                    who.netItemStowed.Value = true;
+                    who.UpdateItemStow();
+                    map.checkAction(new xTile.Dimensions.Location(target.Origin.X, target.Origin.Y), Game1.viewport, who);
+                }
+                finally { who.netItemStowed.Value = stowed; who.UpdateItemStow(); }
                 break;
         }
         void Harvest(HoeDirt soil)
@@ -290,19 +303,7 @@ public static class WorldTargets
             if (ToolStorage.EmptySlot(who) < 0)
                 return "empty-slot";
         }
-        if (target.Entity is ResourceClump c)
-        {
-            int level = c.parentSheetIndex.Value switch
-            {
-                600 => 1,
-                602 or 672 => 2,
-                148 or 622 => 3,
-                _ => 0
-            };
-            if (target.Tool?.UpgradeLevel < level)
-                return "upgrade";
-        }
-        if (target.Entity is SObject o && o.Name.Contains("Boulder", StringComparison.Ordinal) && target.Tool?.UpgradeLevel < 2)
+        if (!ToolRequirements.Allows(target.Entity, target.Tool))
             return "upgrade";
         if (target.Entity is not WaterSource && target.Mode == ToolMode.WateringCan && target.Tool is WateringCan can && can.WaterLeft <= 0 && !who.hasWateringCanEnchantment)
             return "water";
@@ -353,7 +354,12 @@ public static class WorldTargets
         FruitTree t => target.Kind == ActionKind.Fruit ? t.fruit.Count : t.health.Value,
         ResourceClump c => c.health.Value,
         Grass g => g.numberOfWeeds.Value,
+        HoeDirt s => CropProgress(s),
+        IndoorPot p => CropProgress(p.hoeDirt.Value),
         SObject o => o.MinutesUntilReady,
         _ => 0
     };
+    private static double CropProgress(HoeDirt soil) => soil.crop is { } crop
+        ? crop.currentPhase.Value * 1000 + crop.dayOfCurrentPhase.Value + (crop.fullyGrown.Value ? 100000 : 0)
+        : -1;
 }

@@ -63,6 +63,11 @@ public sealed partial class WorkController
             next = live;
         }
         var t = next.Target;
+        if (t.Entity is BuildingDoor door)
+        {
+            UseBuildingDoor(who, door, t);
+            return;
+        }
         if (t.Tool is WateringCan && !Watering.Valid(next, Board, who, config()))
         {
             Retry(t);

@@ -150,7 +150,8 @@ public sealed partial class ModEntry
                 Map.animals.Add(cow.myID.Value, cow);
                 DragWith(SButton.MouseLeft, 23, 19, 26, 22);
                 Assert(Control.Board.Jobs.Any(t => t.Kind == ActionKind.Pet && t.Tool is null), "Missing left hand interaction for " + item.Name);
-                Until(() => cow.wasPet.Value);
+                try { Until(() => cow.wasPet.Value); }
+                catch (Exception ex) { throw new Exception("Held " + item.QualifiedItemId + ": " + ex.Message, ex); }
                 Assert(!Who.isEating && Game1.activeClickableMenu is null && item.Stack > 0, "Held item used instead of petting: " + item.Name);
             }
         });

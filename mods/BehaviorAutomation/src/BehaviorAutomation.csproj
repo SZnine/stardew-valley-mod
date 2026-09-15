@@ -5,7 +5,7 @@
     <Nullable>enable</Nullable>
     <EnableNETAnalyzers>true</EnableNETAnalyzers>
     <AssemblyName>BehaviorAutomation</AssemblyName>
-    <Version>2.2.1</Version>
+    <Version>2.3.0</Version>
     <EnableDefaultItems>true</EnableDefaultItems>
   </PropertyGroup>
   <ItemGroup>

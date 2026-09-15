@@ -127,7 +127,7 @@ public sealed class RouteSearch
                     // one-target actions like petting, milk, watering or collecting a machine.
                     if (goal.Target.Kind == ActionKind.Water && goal.Target.Entity is not WaterSource && goal.Hits is not null)
                     {
-                        double value = (cost / 10d + 8 + goal.Power * 3) / goal.Coverage;
+                        double value = WorkCost(cost / 10d, 8 + goal.Power * 3, goal.Coverage);
                         if (value < waterScore)
                         {
                             waterScore = value;
@@ -147,7 +147,7 @@ public sealed class RouteSearch
                     }
                     // A full native swing costs more than a few walking tiles. Avoid cheap edge swings
                     // that leave a nearby cluster to be approached and swung at again.
-                    double score = (cost / 10d + swingCost) / goal.Coverage;
+                    double score = WorkCost(cost / 10d, swingCost, goal.Coverage);
                     if (score < bestScore)
                     {
                         bestScore = score;
@@ -206,7 +206,7 @@ public sealed class RouteSearch
         // Keep distinct coverage sets: many equivalent stances around the first cluster must
         // not crowd all useful second swings out of the bounded lookahead.
         var shortlist = new List<(Approach Plan, int Cost)>();
-        foreach (var candidate in reached.OrderBy(p => (p.Cost / 10d + swingCost) / p.Plan.Coverage))
+        foreach (var candidate in reached.OrderBy(p => WorkCost(p.Cost / 10d, swingCost, p.Plan.Coverage)))
         {
             if (shortlist.Any(p => ReferenceEquals(p.Plan.Target.Tool, candidate.Plan.Target.Tool) && p.Plan.Hits!.SetEquals(candidate.Plan.Hits!)))
                 continue;
@@ -221,7 +221,7 @@ public sealed class RouteSearch
                 continue;
             if (first.Coverage == scytheTargets)
             {
-                double score = (cost / 10d + swingCost) / scytheTargets;
+                double score = WorkCost(cost / 10d, swingCost, scytheTargets);
                 if (score < best)
                 {
                     best = score;
@@ -238,7 +238,7 @@ public sealed class RouteSearch
                     continue;
                 int covered = first.Coverage + extra, left = scytheTargets - covered;
                 double travel = diagonal ? PathGeometry.Distance(first.Stand, second.Stand) : Math.Abs(first.Stand.X - second.Stand.X) + Math.Abs(first.Stand.Y - second.Stand.Y);
-                double score = (cost / 10d + swingCost * 2 + travel + (first.Coverage == 1 ? 12 : 0) + (extra == 1 ? 12 : 0) + (left == 1 ? 16 : 0)) / covered;
+                double score = WorkCost(cost / 10d, swingCost * 2 + (first.Coverage == 1 ? 12 : 0) + (extra == 1 ? 12 : 0) + (left == 1 ? 16 : 0), covered) + travel / covered;
                 if (score < best)
                 {
                     best = score;
@@ -260,6 +260,9 @@ public sealed class RouteSearch
         if (nearestOtherCost <= distance[Result.Stand] + allowance * 10)
             Result = nearestOther;
     }
+    // Coverage can amortize swings, but shouldn't make a long detour almost free.
+    private static double WorkCost(double walkingTiles, double actionCost, int coverage)
+        => (walkingTiles + actionCost) / Math.Max(1, coverage) + Math.Max(0, walkingTiles - 6) * .25;
     private bool CanWalk(Cell p)
     {
         if (!walk.TryGetValue(p, out bool allowed))

@@ -22,6 +22,7 @@ public sealed class ModEntry : Mod
     private ModConfig config = new();
     private readonly PerScreen<WorkController> controllers;
     private readonly PerScreen<DragSelection?> drag = new(() => null);
+    private readonly PerScreen<SelectionCamera> selectionCamera = new(() => new());
     private readonly PerScreen<string?> pendingMenu = new(() => null);
     private readonly PerScreen<string?> lastNotice = new(() => null);
     private readonly PerScreen<double> noticeTime = new(() => 0);
@@ -48,7 +49,13 @@ public sealed class ModEntry : Mod
         helper.Events.Input.ButtonsChanged += Buttons;
         helper.Events.Input.ButtonPressed += Pressed;
         helper.Events.Display.MenuChanged += (_, e) => { if (e.NewMenu is not null) Reset(); };
-        helper.Events.Player.Warped += (_, e) => { if (e.IsLocalPlayer) Reset(); };
+        helper.Events.Player.Warped += (_, e) =>
+        {
+            if (!e.IsLocalPlayer) return;
+            selectionCamera.Value.End();
+            drag.Value = null;
+            if (!Controller.OnWarped(e.OldLocation, e.NewLocation, Game1.player)) Reset();
+        };
         helper.Events.GameLoop.Saving += (_, _) => Reset();
         helper.Events.GameLoop.DayEnding += (_, _) => Reset();
         helper.Events.GameLoop.ReturnedToTitle += (_, _) =>
@@ -58,6 +65,8 @@ public sealed class ModEntry : Mod
             foreach (var overlay in overlays.GetActiveValues())
                 overlay.Value.Dispose();
             drag.ResetAllScreens();
+            foreach (var camera in selectionCamera.GetActiveValues()) camera.Value.End();
+            selectionCamera.ResetAllScreens();
             pendingMenu.ResetAllScreens();
         };
         helper.Events.Display.Rendered += DrawOverlay;
@@ -82,6 +91,16 @@ public sealed class ModEntry : Mod
         api.AddNumberOption(ModManifest, () => config.ScytheSwingCost, v => config.ScytheSwingCost = (int)v, () => T("config.scythe-batch"), () => T("config.scythe-batch-tip"), min: 4, max: 32, interval: 1);
         api.AddBoolOption(ModManifest, () => config.AutoRefillWateringCan, v => config.AutoRefillWateringCan = v, () => T("config.refill"));
         api.AddBoolOption(ModManifest, () => config.ClearObstacles, v => config.ClearObstacles = v, () => T("config.clearance"));
+        api.AddBoolOption(ModManifest, () => config.PanWhileSelecting, v => config.PanWhileSelecting = v, () => T("config.pan"));
+        api.AddBoolOption(ModManifest, () => config.ShowSelectionSize, v => config.ShowSelectionSize = v, () => T("config.selection-size"));
+        api.AddTextOption(ModManifest, () => config.MenuAppearance.ToString(), v => config.MenuAppearance = Enum.Parse<MenuStyle>(v), () => T("config.menu-style"),
+            allowedValues: Enum.GetNames<MenuStyle>(), formatAllowedValue: v => T("style.menu." + v));
+        api.AddTextOption(ModManifest, () => config.SelectionAppearance.ToString(), v => config.SelectionAppearance = Enum.Parse<SelectionStyle>(v), () => T("config.selection-style"),
+            allowedValues: Enum.GetNames<SelectionStyle>(), formatAllowedValue: v => T("style.selection." + v));
+        api.AddNumberOption(ModManifest, () => config.SelectionPanSpeed, v => config.SelectionPanSpeed = (int)v, () => T("config.pan-speed"), min: 4, max: 24, interval: 1);
+        api.AddBoolOption(ModManifest, () => config.WorkInsideBuildings, v => config.WorkInsideBuildings = v, () => T("config.interiors"), () => T("config.interiors-tip"));
+        api.AddNumberOption(ModManifest, () => config.WildTreeSpacing, v => config.WildTreeSpacing = (int)v, () => T("config.wild-spacing"), () => T("config.spacing-tip"), min: 2, max: 8, interval: 1);
+        api.AddNumberOption(ModManifest, () => config.FruitTreeSpacing, v => config.FruitTreeSpacing = (int)v, () => T("config.fruit-spacing"), () => T("config.spacing-tip"), min: 3, max: 8, interval: 1);
         api.AddNumberOption(ModManifest, () => config.RefreshIntervalSeconds, v => config.RefreshIntervalSeconds = v, () => T("config.refresh"), min: .1f, max: 1, interval: .1f);
         api.AddNumberOption(ModManifest, () => config.CompletionDelaySeconds, v => config.CompletionDelaySeconds = v, () => T("config.completion"), () => T("config.completion-tip"), min: .3f, max: 3, interval: .1f);
     }
@@ -107,6 +126,7 @@ public sealed class ModEntry : Mod
     {
         pendingMenu.Value = null;
         drag.Value = null;
+        selectionCamera.Value.End();
         Controller.Editing = false;
         Controller.Clear();
     }
@@ -120,6 +140,11 @@ public sealed class ModEntry : Mod
 
     private void Buttons(object? sender, ButtonsChangedEventArgs e)
     {
+        if (Game1.activeClickableMenu is ActionMenu menu && menu.CapturingBinding)
+        {
+            menu.CaptureBinding(e.Pressed, e.Held, Helper.Input.Suppress);
+            return;
+        }
         if (Game1.activeClickableMenu is ActionMenu && config.ActionMenuKey.JustPressed())
         {
             Game1.exitActiveMenu();
@@ -179,6 +204,7 @@ public sealed class ModEntry : Mod
             Smart = smart
         };
         Controller.Editing = true;
+        selectionCamera.Value.Begin();
         Helper.Input.Suppress(e.Button);
     }
 
@@ -187,6 +213,7 @@ public sealed class ModEntry : Mod
         if (!Context.IsWorldReady)
         {
             drag.Value = null;
+            selectionCamera.Value.End();
             Controller.Abandon();
             return;
         }
@@ -200,15 +227,22 @@ public sealed class ModEntry : Mod
             if (drag.Value is { } selection)
             {
                 if (!config.Enabled || !Editable())
+                {
                     drag.Value = null;
+                    selectionCamera.Value.End();
+                }
                 else
                 {
-                    selection.End = Cell.At(Helper.Input.GetCursorPosition().Tile);
-                    if (!Controller.Editing || !(Helper.Input.IsDown(selection.Button) || Helper.Input.IsSuppressed(selection.Button)))
+                    bool held = Controller.Editing && (Helper.Input.IsDown(selection.Button) || Helper.Input.IsSuppressed(selection.Button));
+                    selection.End = selectionCamera.Value.Update(Helper.Input.GetCursorPosition(), Game1.currentLocation, config,
+                        held ? Game1.currentGameTime.ElapsedGameTime.TotalMilliseconds : 0);
+                    if (!held)
                     {
+                        Controller.Clear();
                         Controller.Board.Select(Game1.currentLocation, Game1.player, selection.Mode, selection.Tool,
                             SelectionGeometry.Rectangle(selection.Start, selection.End, WorkRules.MaxSelectionSize), config, selection.Material, selection.Smart);
                         drag.Value = null;
+                        selectionCamera.Value.End();
                         Controller.Resume();
                     }
                 }
@@ -231,7 +265,7 @@ public sealed class ModEntry : Mod
                 }
             }
         }
-        catch (Exception ex) { drag.Value = null; Controller.Pause("error", true); Monitor.Log("Behavior automation paused: " + ex, LogLevel.Error); }
+        catch (Exception ex) { drag.Value = null; selectionCamera.Value.End(); Controller.Pause("error", true); Monitor.Log("Behavior automation paused: " + ex, LogLevel.Error); }
     }
 
     [EventPriority(EventPriority.Low)]
@@ -244,7 +278,7 @@ public sealed class ModEntry : Mod
         var cursor = Helper.Input.GetCursorPosition();
         var ui = cursor.GetScaledScreenPixels();
         bool overHud = Game1.onScreenMenus.Any(m => m.isWithinBounds((int)ui.X, (int)ui.Y));
-        Cell? hover = Controller.Editing && (drag.Value is not null || !overHud) ? Cell.At(cursor.Tile) : null;
+        Cell? hover = Controller.Editing && (drag.Value is not null || !overHud) ? drag.Value?.End ?? Cell.At(cursor.Tile) : null;
         try
         {
             overlays.Value.DrawTop(e.SpriteBatch, Controller, drag.Value, config, hover);

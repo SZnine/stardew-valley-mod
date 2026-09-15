@@ -12,7 +12,7 @@ public enum ToolMode
 }
 public enum ActionKind
 {
-    Pet, Milk, Shear, Stone, LargeRock, Twig, WildTree, TreeStump, LargeWood, Sapling, FruitTree, Weed, Grass, DeadCrop, HarvestCrop, Fruit, Bush, Forage, Machine, Water, Artifact, Till, PlantCrop, PlantWildTree, PlantFruitTree, PlantTea, Feed, WaterBowl, PlaceFloor, PlaceObject, RemoveFloor
+    Pet, Milk, Shear, Stone, LargeRock, Twig, WildTree, TreeStump, LargeWood, Sapling, FruitTree, Weed, Grass, DeadCrop, HarvestCrop, Fruit, Bush, Forage, Machine, Water, Artifact, Till, PlantCrop, PlantWildTree, PlantFruitTree, PlantTea, Feed, WaterBowl, PlaceFloor, PlaceObject, RemoveFloor, BuildingInterior
 }
 public enum WorkScope
 {
@@ -76,7 +76,7 @@ public sealed class WorkTarget
     {
         get; init;
     }
-    public Item? Icon => (Item?)Tool ?? Material ?? (Kind == ActionKind.Feed ? AnimalCare.HayIcon : null);
+    public Item? Icon => Entity is BuildingDoor door ? door.Icon : (Item?)Tool ?? Material ?? (Kind == ActionKind.Feed ? AnimalCare.HayIcon : null);
     public long Group
     {
         get; set;

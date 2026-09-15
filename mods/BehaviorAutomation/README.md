@@ -4,7 +4,7 @@
 
 <h1 align="center">Behavior Automation</h1>
 <p align="center">Select an area. Let your farmer take care of the routine.</p>
-<p align="center"><a href="https://github.com/SZnine/stardew-valley-mod/releases/tag/behavior-automation-v2.2.1">Download 2.2.1</a> · <a href="https://www.nexusmods.com/stardewvalley/mods/52289">Nexus Mods</a> · <a href="#controls">Controls</a> · <a href="docs/CHANGELOG.md">Changelog</a></p>
+<p align="center"><a href="https://github.com/SZnine/stardew-valley-mod/releases/tag/behavior-automation-v2.3.0">Download 2.3.0</a> · <a href="https://www.nexusmods.com/stardewvalley/mods/52289">Nexus Mods</a> · <a href="#controls">Controls</a> · <a href="docs/CHANGELOG.md">Changelog</a></p>
 
 Automate everyday farm work, animal care, and farm renovation by selecting an area. Your farmer walks to each task using your tools and materials, with normal energy costs and tool requirements.
 
@@ -32,7 +32,7 @@ Automate everyday farm work, animal care, and farm renovation by selecting an ar
 | **F8** | Open the action panel. |
 | **Press Shift again**, open inventory, or **move for 0.5 seconds** | Cancel the current work. |
 
-Release the mouse button to start. A new selection replaces the previous one. Brief manual movement takes priority; work resumes when you stop moving.
+Drag to the screen edge to pan and extend the selection. A small badge shows its width × height in tiles. Release the mouse button to start. A new selection replaces the previous one. Brief manual movement takes priority; work resumes when you stop moving.
 
 ## What you can automate
 
@@ -41,21 +41,25 @@ Release the mouse button to start. A new selection replaces the previous one. Br
 | **Crops & gathering** | Till soil, dig artifact spots, plant seeds and spaced trees, water, harvest mature crops, collect forage, fruit, moss, and machine output. |
 | **Clearing & mining** | Weeds, grass, dead crops, twigs, trees, stumps, stones, and large debris your tools can break. |
 | **Daily animal care** | Pet farm animals and pets, milk, shear, add hay, fill pet bowls, and collect produce. |
+| **Building interiors** | Enter selected coops, barns, or sheds, perform enabled work, then return to the outdoor selection. |
 | **Farm renovation** | Lay and remove floors or paths; place fences, torches, sprinklers, chests, and machines. |
 
 Tilling, digging spots, planting, placement, and floor removal require the corresponding held item and a left-click selection. Animal sales, relocation, renaming, and valuable treats remain manual.
 
 ## Choose your actions
 
-The **F8** panel has three independent pages. Click an icon to toggle it; highlighted icons are enabled. Each page has **Select all** and **Clear**.
+The **F8** panel has three independent action pages and a settings page. Click an icon to toggle it; highlighted icons are enabled. Each action page has **Select all** and **Clear**.
 
 | Page | Applies to |
 | :--- | :--- |
 | **Left held item** | Work performed with the selected tool, seed, or material. |
 | **Left extras** | Additional actions regardless of the held item; gathering and daily animal care are enabled by default. |
 | **Right tool pool** | Actions allowed to choose their tools automatically. |
+| **Settings** | Menu and selection styles, three hotkeys, selection dimensions, camera panning, interior work, stored tools, and tree spacing. |
 
 With [Generic Mod Config Menu](https://www.nexusmods.com/stardewvalley/mods/5098), configure hotkeys, movement cancellation, diagonal paths, scythe planning, refilling, obstacle clearing, stored tools, and energy reserve. The F8 panel works without it.
+
+Use sidebar icons and grid selections by default. Choose from three menu styles and three selection styles, and rebind the selection, panel, and cancel keys in F8 settings.
 
 ## Install & update
 
@@ -88,3 +92,7 @@ Packages are written to `.artifacts/BehaviorAutomation/package/`.
 [User guide](docs/USER-GUIDE.md) · [Development & tests](docs/DEVELOPMENT.md) · [Report an issue](https://github.com/SZnine/stardew-valley-mod/issues) · [MIT license](LICENSE)
 
 Thanks to ConcernedApe, the SMAPI and Generic Mod Config Menu maintainers, and everyone who tests the mod and reports issues.
+
+## Development direction
+
+Future development will focus on automation within selected areas, improving existing actions, pathfinding, and compatibility. Extra smart systems and unrelated features will be kept limited to control mod size and maintenance cost.

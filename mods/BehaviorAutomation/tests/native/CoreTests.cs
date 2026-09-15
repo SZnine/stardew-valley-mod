@@ -115,6 +115,7 @@ public sealed partial class ModEntry
                 for (int x = area.Left; x < area.Right; x++)
                     for (int y = area.Top; y < area.Bottom; y++)
                         cells.Add(new(x, y));
+                foreach (var cell in cells) Map.Map.GetLayer("Back").Tiles[cell.X, cell.Y].Properties["Type"] = "Dirt";
                 var plans = Planting.Scan(Map, seed, ToolMode.TreeSeeds, area, cells, Config, Array.Empty<WorkTarget>());
                 int gap = id == "(O)628" ? 3 : 2;
                 Assert(plans.Count > 1 && plans.All(a => plans.All(b => a == b || Math.Max(Math.Abs(a.Origin.X - b.Origin.X), Math.Abs(a.Origin.Y - b.Origin.Y)) >= gap)), "Tree spacing too tight");

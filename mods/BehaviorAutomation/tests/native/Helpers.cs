@@ -54,7 +54,7 @@ public sealed partial class ModEntry
     {
         var abs = new Vector2(x * 64 + 32, y * 64 + 32);
         var screen = abs - new Vector2(Game1.viewport.X, Game1.viewport.Y);
-        return (ICursorPosition)Activator.CreateInstance(typeof(Mod).Assembly.GetType("StardewModdingAPI.Framework.CursorPosition")!, screen, abs, new Vector2(x, y), new Vector2(20, 20))!;
+        return (ICursorPosition)Activator.CreateInstance(typeof(Mod).Assembly.GetType("StardewModdingAPI.Framework.CursorPosition")!, abs, screen, new Vector2(x, y), new Vector2(20, 20))!;
     }
     private void Buttons(ICursorPosition cursor, params SButton[] keys)
     {

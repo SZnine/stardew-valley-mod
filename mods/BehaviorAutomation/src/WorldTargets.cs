@@ -261,6 +261,10 @@ public static class WorldTargets
     }
     public static bool Pending(GameLocation map, WorkTarget target, ModConfig config)
     {
+        if (target.Entity is BuildingDoor door)
+            return door.Exit ? map == door.Inside : config.WorkInsideBuildings && map == door.Outside
+                && map.buildings.Contains(door.Building) && door.Building.daysOfConstructionLeft.Value <= 0
+                && ReferenceEquals(door.Building.GetIndoors(), door.Inside);
         if (!config.Allows(target.Kind, target.Scope))
             return false;
         if (target.Entity is Flooring && FloorCovered(map, target.Origin))

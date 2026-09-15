@@ -40,6 +40,7 @@ public sealed partial class ModEntry : Mod
             File.WriteAllText(Path.Combine(Evidence, "native-result.json"), System.Text.Json.JsonSerializer.Serialize(new
             {
                 Version = Behavior.ModManifest.Version.ToString(),
+                LoadedMods = Helper.ModRegistry.GetAll().Select(m => m.Manifest.UniqueID).ToArray(),
                 ProductSHA256 = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(typeof(BehaviorMod).Assembly.Location))),
                 Passed = results.Count(r => r.StartsWith("PASS ")),
                 Failed = results.Count(r => r.StartsWith("FAIL ")),
@@ -168,6 +169,14 @@ public sealed partial class ModEntry : Mod
         Config.ScytheSwingCost = 16;
         Config.AutoRefillWateringCan = true;
         Config.ClearObstacles = true;
+        Config.PanWhileSelecting = true;
+        Config.ShowSelectionSize = true;
+        Config.MenuAppearance = MenuStyle.Sidebar;
+        Config.SelectionAppearance = SelectionStyle.Grid;
+        Config.SelectionPanSpeed = 12;
+        Config.WorkInsideBuildings = true;
+        Config.WildTreeSpacing = 2;
+        Config.FruitTreeSpacing = 3;
         Config.RefreshIntervalSeconds = .3f;
         Config.CompletionDelaySeconds = 1.5f;
         notices.Clear();
@@ -246,6 +255,8 @@ public sealed partial class ModEntry : Mod
     private void Test()
     {
         CoreTests();
+        ExpansionTests();
+        UiSettingsTests();
         ToolRestrictionTests();
         RoutingRegression();
         PlacementTests();

@@ -43,33 +43,33 @@ public sealed partial class ModEntry
         });
         Check("action catalog covers held kinds and keeps hoe planting and placement out of automatic pools", () =>
         {
-            Assert(ActionCatalog.All.Select(a => a.Kind).Distinct().Count() == Enum.GetValues<ActionKind>().Length, "Missing action icon");
+            Assert(ActionCatalog.All.Select(a => a.Kind).Distinct().Count() == Enum.GetValues<ActionKind>().Count(k => k != ActionKind.BuildingInterior), "Missing selectable action icon");
             Assert(ActionCatalog.SmartKinds.Count() == 22 && !ActionCatalog.CanSelectSmart(ActionKind.Till) && !ActionCatalog.CanSelectSmart(ActionKind.PlantCrop), "Unsafe smart pool catalog");
         });
-        CheckWithMod("spacechase0.GenericModConfigMenu", "GMCM exposes fourteen relevant settings and setters persist", () =>
+        CheckWithMod("spacechase0.GenericModConfigMenu", "GMCM exposes twenty-two relevant settings and setters persist", () =>
         {
             var gmcm = Installed<object>("spacechase0.GenericModConfigMenu");
             var manager = AccessTools.Field(gmcm.GetType(), "ConfigManager").GetValue(gmcm)!;
             var setup = AccessTools.Method(manager.GetType(), "Get").Invoke(manager, new object[] { Behavior.ModManifest, false })!;
             var options = ((IEnumerable)AccessTools.Method(setup.GetType(), "GetAllOptions").Invoke(setup, null)!).Cast<object>().ToArray();
-            Assert(options.Length == 14, "Missing operational configuration: " + options.Length);
+            Assert(options.Length == 22, "Missing operational configuration: " + options.Length);
             foreach (var option in options)
             {
                 var value = AccessTools.Property(option.GetType(), "Value");
-                value.SetValue(option, value.PropertyType == typeof(bool) ? false : value.PropertyType == typeof(KeybindList) ? KeybindList.Parse("K") : 21f);
+                value.SetValue(option, value.PropertyType == typeof(bool) ? false : value.PropertyType == typeof(KeybindList) ? KeybindList.Parse("K") : value.PropertyType == typeof(string) ? (string?)value.GetValue(option) == "Grid" ? "Outline" : "List" : 21f);
                 AccessTools.Method(option.GetType(), "BeforeSave").Invoke(option, null);
             }
             Config.LeftActions = new() { ActionKind.Water };
             Behavior.Helper.WriteConfig(Config);
             var read = Behavior.Helper.ReadConfig<ModConfig>();
-            Assert(!read.Enabled && !read.UseStoredTools && read.ReserveStamina == 21 && read.ActionMenuKey.ToString() == "K" && read.LeftActions.SetEquals(new[] { ActionKind.Water }), "Config roundtrip failed");
+            Assert(!read.Enabled && !read.UseStoredTools && !read.ShowSelectionSize && read.MenuAppearance == MenuStyle.List && read.SelectionAppearance == SelectionStyle.Outline && read.ReserveStamina == 21 && read.ActionMenuKey.ToString() == "K" && read.LeftActions.SetEquals(new[] { ActionKind.Water }), "Config roundtrip failed");
         });
         Check("old global exclusions survive config migration", () =>
         {
             var legacy = new ModConfig { ConfigVersion = 3, ReserveStamina = 27, UseStoredTools = false, SelectKey = KeybindList.Parse("LeftControl") };
             legacy.Actions.Remove(ActionKind.WildTree);
             legacy.Migrate();
-            Assert(legacy.ConfigVersion == 8 && !legacy.Allows(ActionKind.WildTree) && !legacy.Allows(ActionKind.WildTree, WorkScope.Smart) && legacy.ReserveStamina == 27 && !legacy.UseStoredTools && legacy.SelectKey.ToString() == "LeftControl", "Migration changed user choices");
+            Assert(legacy.ConfigVersion == 9 && !legacy.Allows(ActionKind.WildTree) && !legacy.Allows(ActionKind.WildTree, WorkScope.Smart) && legacy.ReserveStamina == 27 && !legacy.UseStoredTools && legacy.SelectKey.ToString() == "LeftControl", "Migration changed user choices");
         });
         Check("native action menu switches all three pools and saves immediately", () =>
         {
@@ -111,17 +111,30 @@ public sealed partial class ModEntry
             try
             {
                 foreach (var size in new[] { new Point(1280, 720), new Point(800, 600) })
+                foreach (var style in Enum.GetValues<MenuStyle>())
                 {
+                    Config.MenuAppearance = style;
                     Game1.uiViewport = new(0, 0, size.X, size.Y);
                     var menu = new ActionMenu(Config, () => { }, k => Behavior.Helper.Translation.Get(k));
                     Assert(menu.ActionButtons.All(b => b.bounds.Left >= 0 && b.bounds.Right <= size.X && b.bounds.Bottom < size.Y - 15), "Action tile outside viewport");
-                    RenderMenu(menu, $"actions-held-{size.X}.png", size.X, size.Y);
+                    RenderMenu(menu, $"actions-held-{style}-{size.X}.png", size.X, size.Y);
                     menu.SetPage(ActionPage.Right);
-                    RenderMenu(menu, $"actions-right-{size.X}.png", size.X, size.Y);
+                    RenderMenu(menu, $"actions-right-{style}-{size.X}.png", size.X, size.Y);
                     menu.SetPage(ActionPage.Extra);
-                    RenderMenu(menu, $"actions-extra-{size.X}.png", size.X, size.Y);
+                    RenderMenu(menu, $"actions-extra-{style}-{size.X}.png", size.X, size.Y);
                     menu.receiveScrollWheelAction(-120);
                     Assert(menu.ActionButtons.Count > 0, "Compact scrolling lost actions");
+                    menu.SetPage(ActionPage.Settings);
+                    Assert(menu.SettingButtons.All(b => b.bounds.Left >= 0 && b.bounds.Right <= size.X && b.bounds.Bottom < size.Y - 15), "Settings control outside viewport");
+                    RenderMenu(menu, $"settings-{style}-{size.X}.png", size.X, size.Y);
+                    var seen = new HashSet<string>();
+                    for (int scroll = 0; scroll < 12; scroll++)
+                    {
+                        Assert(menu.SettingButtons.All(b => b.bounds.Bottom < size.Y - 15), "Scrolled setting outside viewport");
+                        seen.UnionWith(menu.SettingButtons.Select(b => b.name));
+                        menu.receiveScrollWheelAction(-1);
+                    }
+                    Assert(new[] { "config.menu-style", "config.selection-style", "config.select", "config.menu", "config.cancel", "config.fruit-spacing" }.All(seen.Contains), "Scrolled settings unreachable");
                 }
             }
             finally { Game1.uiViewport = old; }

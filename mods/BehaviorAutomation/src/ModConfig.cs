@@ -2,6 +2,9 @@ using StardewModdingAPI.Utilities;
 
 namespace Sznine.BehaviorAutomation;
 
+public enum SelectionStyle { Filled, Outline, Grid }
+public enum MenuStyle { Cards, Sidebar, List }
+
 /// <summary>User choices; hard safety and per-frame search limits belong to WorkRules.</summary>
 public sealed class ModConfig
 {
@@ -17,6 +20,14 @@ public sealed class ModConfig
     public int ScytheSwingCost { get; set; } = 16;
     public bool AutoRefillWateringCan { get; set; } = true;
     public bool ClearObstacles { get; set; } = true;
+    public bool PanWhileSelecting { get; set; } = true;
+    public bool ShowSelectionSize { get; set; } = true;
+    public SelectionStyle SelectionAppearance { get; set; } = SelectionStyle.Grid;
+    public MenuStyle MenuAppearance { get; set; } = MenuStyle.Sidebar;
+    public int SelectionPanSpeed { get; set; } = 12;
+    public bool WorkInsideBuildings { get; set; } = true;
+    public int WildTreeSpacing { get; set; } = 2;
+    public int FruitTreeSpacing { get; set; } = 3;
     public float RefreshIntervalSeconds { get; set; } = .3f;
     public float CompletionDelaySeconds { get; set; } = 1.5f;
     // Serialized as Actions for backward compatibility; applies only to held-item work.
@@ -24,7 +35,7 @@ public sealed class ModConfig
     {
         get; set;
     } = Enum.GetValues<ActionKind>()
-        .Except(new[] { ActionKind.Sapling, ActionKind.FruitTree }).ToHashSet();
+        .Except(new[] { ActionKind.Sapling, ActionKind.FruitTree, ActionKind.BuildingInterior }).ToHashSet();
     public HashSet<ActionKind> SmartActions
     {
         get; set;
@@ -56,16 +67,21 @@ public sealed class ModConfig
         SelectKey ??= KeybindList.Parse("LeftShift, RightShift");
         ActionMenuKey ??= KeybindList.Parse("F8");
         CancelKey ??= KeybindList.Parse("LeftShift, RightShift");
+        if (!Enum.IsDefined(typeof(SelectionStyle), SelectionAppearance)) SelectionAppearance = SelectionStyle.Grid;
+        if (!Enum.IsDefined(typeof(MenuStyle), MenuAppearance)) MenuAppearance = MenuStyle.Sidebar;
         ReserveStamina = float.IsFinite(ReserveStamina) ? Math.Clamp(ReserveStamina, 0, 100) : 10;
         MovementCancelSeconds = float.IsFinite(MovementCancelSeconds) ? Math.Clamp(MovementCancelSeconds, .1f, 2) : .5f;
         ScytheSearchTiles = Math.Clamp(ScytheSearchTiles, 2, 24);
         ScytheSwingCost = Math.Clamp(ScytheSwingCost, 4, 32);
+        SelectionPanSpeed = Math.Clamp(SelectionPanSpeed, 4, 24);
+        WildTreeSpacing = Math.Clamp(WildTreeSpacing, 2, 8);
+        FruitTreeSpacing = Math.Clamp(FruitTreeSpacing, 3, 8);
         RefreshIntervalSeconds = float.IsFinite(RefreshIntervalSeconds) ? Math.Clamp(RefreshIntervalSeconds, .1f, 1) : .3f;
         CompletionDelaySeconds = float.IsFinite(CompletionDelaySeconds) ? Math.Clamp(CompletionDelaySeconds, .3f, 3) : 1.5f;
         Actions ??= new();
         SmartActions ??= new();
         LeftActions ??= new();
-        Actions.RemoveWhere(k => !Enum.IsDefined(typeof(ActionKind), k));
+        Actions.RemoveWhere(k => !Enum.IsDefined(typeof(ActionKind), k) || k == ActionKind.BuildingInterior);
         SmartActions.RemoveWhere(k => !ActionCatalog.CanSelectSmart(k));
         LeftActions.RemoveWhere(k => !ActionCatalog.CanSelectSmart(k));
     }
@@ -88,7 +104,7 @@ public sealed class ModConfig
         }
         if (ConfigVersion < 7)
             Actions.Add(ActionKind.RemoveFloor);
-        ConfigVersion = 8;
+        ConfigVersion = 9;
     }
 }
 
@@ -96,6 +112,4 @@ internal static class WorkRules
 {
     public const int MaxSelectionSize = 64;
     public const int MaxJobs = 4096;
-    public const int WildTreeSpacing = 2;
-    public const int FruitTreeSpacing = 3;
 }

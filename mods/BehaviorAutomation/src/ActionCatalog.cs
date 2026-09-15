@@ -26,7 +26,7 @@ public static class ActionCatalog
         new(ActionKind.Sapling, "(O)311", "wood"), new(ActionKind.FruitTree, "(O)633", "wood")
     };
     public static bool CanSelectSmart(ActionKind kind) => Enum.IsDefined(typeof(ActionKind), kind)
-        && kind is not (ActionKind.Till or ActionKind.Artifact or ActionKind.PlantCrop
+        && kind is not (ActionKind.BuildingInterior or ActionKind.Till or ActionKind.Artifact or ActionKind.PlantCrop
             or ActionKind.PlantWildTree or ActionKind.PlantFruitTree or ActionKind.PlantTea or ActionKind.PlaceFloor or ActionKind.PlaceObject or ActionKind.RemoveFloor);
     public static IEnumerable<ActionKind> SmartKinds => All.Select(a => a.Kind).Where(CanSelectSmart);
 }

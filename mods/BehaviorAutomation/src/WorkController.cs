@@ -18,7 +18,7 @@ public sealed class Operation
 
 public sealed partial class WorkController
 {
-    public readonly WorkBoard Board = new();
+    public WorkBoard Board { get; private set; } = new();
     private readonly Func<ModConfig> config;
     private readonly Action<string> notice;
     private Farmer? owner;
@@ -56,7 +56,7 @@ public sealed partial class WorkController
         get; private set;
     }
     private double movementMilliseconds;
-    public bool HasSession => Board.HasSelection && State != "idle";
+    public bool HasSession => buildingJourney is not null || Board.HasSelection && State != "idle";
     public WorkTarget? DisplayedTask => Active is { } active && active.Generation == Board.Generation ? active.Approach.Target : approach?.Target ?? (displayedTask is { } shown && (Board.Jobs.Contains(shown) || Board.Jobs.Count == 0) ? shown : Board.Jobs.OrderBy(t => t.Group).FirstOrDefault());
     public bool OwnsSession => Editing || Active is not null || !Paused && HasSession;
     public WorkController(Func<ModConfig> config, Action<string> notice)
@@ -93,6 +93,12 @@ public sealed partial class WorkController
         StopPath();
         CancelCharge();
         Board.Clear();
+        if (buildingJourney is { } journey)
+        {
+            journey.OutsideBoard.Clear();
+            Board = journey.OutsideBoard;
+            buildingJourney = null;
+        }
         failedObstacles.Clear();
         scytheStreak = 0;
         Paused = false;
@@ -239,6 +245,12 @@ public sealed partial class WorkController
     {
         owner = who;
         milliseconds = Math.Clamp(milliseconds, 0, 100);
+        if (buildingJourney?.Expected is not null)
+        {
+            buildingJourney.WaitMilliseconds += milliseconds;
+            if (buildingJourney.WaitMilliseconds > 5000) Clear();
+            return;
+        }
         if (config().Enabled && eligible && !Editing && !Paused && !ManualMovement && HasSession && Board.Location == who.currentLocation)
         {
             refreshIn -= milliseconds;
@@ -329,6 +341,12 @@ public sealed partial class WorkController
             if (State != "idle" && Board.HasSelection && (emptyPasses < 2 || quietMilliseconds < config().CompletionDelaySeconds * 1000d))
             {
                 State = "checking";
+                return;
+            }
+            if (buildingJourney is { Entered: true } journey)
+            {
+                Board.Jobs.Add((journey.Door with { Exit = true }).Target());
+                State = "leaving-building";
                 return;
             }
             if (State != "idle" && Board.Location is not null)
@@ -488,8 +506,8 @@ public sealed partial class WorkController
                     Pause(blockedReason, true);
                 return;
             }
-            if (Board.OrderedPlanting && !candidates.Any(t => t.IsObstacle))
-                candidates = candidates.Take(1).ToList();
+            // Pattern reservations determine spacing, not travel order. Start at a reachable
+            // nearby seed/floor tile instead of always walking to the rectangle's top-left.
             routeCandidates = candidates;
             search = new(Cell.Of(who), candidates, p => WorldTargets.CanStand(who.currentLocation, who, p), scytheFarmer: who, scytheStreak: scytheStreak, waterPlans: Board.Area is { } area ? Watering.Approaches(candidates, who, area, config()) : null, settings: config());
         }

@@ -9,11 +9,11 @@ public static class Planting
 {
     public static ActionKind Kind(SObject seed) => seed.IsWildTreeSapling() ? ActionKind.PlantWildTree : seed.IsFruitTreeSapling() ? ActionKind.PlantFruitTree : seed.IsTeaSapling() ? ActionKind.PlantTea : ActionKind.PlantCrop;
     private static int Distance(Cell a, Cell b) => Math.Max(Math.Abs(a.X - b.X), Math.Abs(a.Y - b.Y));
-    private static int Spacing(ActionKind kind, ModConfig c) => kind == ActionKind.PlantFruitTree ? WorkRules.FruitTreeSpacing : kind == ActionKind.PlantWildTree ? WorkRules.WildTreeSpacing : 0;
+    private static int Spacing(ActionKind kind, ModConfig c) => kind == ActionKind.PlantFruitTree ? c.FruitTreeSpacing : kind == ActionKind.PlantWildTree ? c.WildTreeSpacing : 0;
     private static bool Room(Cell at, ActionKind kind, Func<Cell, ActionKind?> occupied, ModConfig config)
     {
         int spacing = Spacing(kind, config);
-        int radius = spacing > 0 ? Math.Max(WorkRules.WildTreeSpacing, WorkRules.FruitTreeSpacing) - 1 : 1;
+        int radius = spacing > 0 ? Math.Max(config.WildTreeSpacing, config.FruitTreeSpacing) - 1 : 1;
         for (int y = at.Y - radius; y <= at.Y + radius; y++)
             for (int x = at.X - radius; x <= at.X + radius; x++)
             {
@@ -46,6 +46,18 @@ public static class Planting
             return false;
         if (!seed.canBePlacedHere(map, at.Tile, showError: false))
             return false;
+        // Native fruit-sapling placement has a ground check beyond canBePlacedHere.
+        // Filter those tiles before routing so a rejected planting cannot stall nearby work.
+        if (seed.IsFruitTreeSapling())
+        {
+            bool diggable = map.doesTileHaveProperty(at.X, at.Y, "Diggable", "Back") is not null;
+            string type = map.doesTileHaveProperty(at.X, at.Y, "Type", "Back");
+            bool explicitTrees = map.doesEitherTileOrTileIndexPropertyEqual(at.X, at.Y, "CanPlantTrees", "Back", "T");
+            bool farmGround = map is Farm && (diggable || type is "Grass" or "Dirt" || explicitTrees)
+                && (!map.IsNoSpawnTile(at.Tile, "Tree") || explicitTrees);
+            if (!farmGround && !((diggable || type == "Stone") && map.CanPlantTreesHere(seed.ItemId, at.X, at.Y, out _)))
+                return false;
+        }
         return Room(at, Kind(seed), p => map.terrainFeatures.GetValueOrDefault(p.Tile) switch { FruitTree => ActionKind.PlantFruitTree, Tree => ActionKind.PlantWildTree, _ => null }, config);
     }
     public static List<WorkTarget> Scan(GameLocation map, SObject seed, ToolMode mode, Rectangle area, HashSet<Cell> added, ModConfig config, IEnumerable<WorkTarget> queued)

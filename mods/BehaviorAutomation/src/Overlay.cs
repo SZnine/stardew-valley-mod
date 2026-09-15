@@ -24,8 +24,30 @@ public static class Overlay
         {
             var area = SelectionGeometry.Rectangle(drag.Start, drag.End, WorkRules.MaxSelectionSize);
             var r = new Rectangle(area.X * 64 - Game1.viewport.X, area.Y * 64 - Game1.viewport.Y, area.Width * 64, area.Height * 64);
-            Fill(b, r, ModeInfo.Color(drag.Mode) * .18f);
-            Border(b, r, Color.White * .9f, 3);
+            if (config.SelectionAppearance == SelectionStyle.Filled)
+            {
+                Fill(b, r, ModeInfo.Color(drag.Mode) * .18f);
+                Border(b, r, Color.White * .9f, 3);
+            }
+            else
+            {
+                var color = config.SelectionAppearance == SelectionStyle.Grid ? new Color(105, 240, 176) : new Color(255, 226, 143);
+                if (config.SelectionAppearance == SelectionStyle.Grid)
+                {
+                    Fill(b, r, color * .1f);
+                    // Only draw the visible portion; large off-camera selections don't add full grids.
+                    var visible = Rectangle.Intersect(r, view);
+                    for (int x = r.X + 64; x < r.Right; x += 64)
+                        if (x >= view.Left && x < view.Right) Fill(b, new(x, visible.Y, 1, visible.Height), color * .6f);
+                    for (int y = r.Y + 64; y < r.Bottom; y += 64)
+                        if (y >= view.Top && y < view.Bottom) Fill(b, new(visible.X, y, visible.Width, 1), color * .6f);
+                    var iconBounds = new Rectangle(Math.Clamp(r.Left, 8, Math.Max(8, view.Width - 56)),
+                        Math.Clamp(r.Top - 52, 8, Math.Max(8, view.Height - 56)), 48, 48);
+                    DrawIcon(b, drag.Smart ? null : (Item?)drag.Tool ?? drag.Material, iconBounds);
+                }
+                Border(b, r, color, 2);
+                Corners(b, r, color);
+            }
         }
         if (control.Editing && hover is { } hoveredCell)
         {
@@ -37,6 +59,35 @@ public static class Overlay
             if (drag is not null && drag.Start != hoveredCell)
                 Corners(b, Screen(drag.Start), new Color(255, 240, 145));
         }
+        if (drag is not null && config.ShowSelectionSize)
+            DrawSize(b, drag, view);
+    }
+    public static string SizeText(DragSelection drag)
+    {
+        var area = SelectionGeometry.Rectangle(drag.Start, drag.End, WorkRules.MaxSelectionSize);
+        return $"{area.Width} {(Game1.smallFont.Characters.Contains('×') ? "×" : "x")} {area.Height}";
+    }
+    public static Rectangle SizeBounds(DragSelection drag, Rectangle view)
+    {
+        float scale = 1 / Math.Max(.5f, Game1.options.zoomLevel);
+        var size = Game1.smallFont.MeasureString(SizeText(drag)) * scale;
+        int margin = (int)(8 * scale), gap = (int)(14 * scale);
+        int width = (int)Math.Ceiling(size.X + 20 * scale), height = (int)Math.Ceiling(size.Y + 12 * scale);
+        var cursor = Screen(drag.End).Center;
+        int x = cursor.X + gap, y = cursor.Y - height - gap;
+        if (x + width > view.Right - margin) x = cursor.X - width - gap;
+        if (y < view.Top + margin) y = cursor.Y + gap;
+        return new(Math.Clamp(x, view.Left + margin, Math.Max(view.Left + margin, view.Right - width - margin)),
+            Math.Clamp(y, view.Top + margin, Math.Max(view.Top + margin, view.Bottom - height - margin)), width, height);
+    }
+    public static void DrawSize(SpriteBatch b, DragSelection drag, Rectangle view)
+    {
+        var bounds = SizeBounds(drag, view);
+        float scale = 1 / Math.Max(.5f, Game1.options.zoomLevel);
+        Fill(b, bounds, new Color(40, 34, 24) * .94f);
+        Border(b, bounds, new Color(246, 217, 146), Math.Max(1, (int)(2 * scale)));
+        b.DrawString(Game1.smallFont, SizeText(drag), bounds.Location.ToVector2() + new Vector2(10, 6) * scale,
+            new Color(255, 247, 223), 0, Vector2.Zero, scale, SpriteEffects.None, 1);
     }
     public static Rectangle OverheadBounds(Farmer who, double milliseconds, bool animated)
     {

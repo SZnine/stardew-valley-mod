@@ -80,3 +80,21 @@ GMCM、Passable Crops 和独立智能水壶用于各自的兼容场景。不提�
 清障候选由 `WorkBoard.ObstacleCandidates` 产生，复用选区扫描规则。左键基础固定原工具，左键全局与右键智能仍可选择实际存在的工具。`ToolRequirements` 做无副作用原版预检；斧头命中时已经临时计入额外力量，不能重复叠加。镐子的额外伤害不代表等级提升。
 
 兼容测试也接受 `bcmpinc.StardewHack` 和 `bcmpinc.HarvestWithScythe` 的模组目录，二者同时提供。测试目录不包含这些第三方模组的二进制文件。
+
+
+## 2.3 selection lifecycle
+
+`SelectionCamera` owns the viewport only during a drag, then restores camera follow. Cursor coordinates use SMAPI world-scale screen pixels.
+
+`BuildingWork` discovers native entrances; `BuildingJourney` keeps the outside board during one interior visit. The child board inherits the selected action pools. Expected native warps switch boards; other warps or cancellation clear the session. Board generations are unique across this transition.
+
+`Navigation` keeps reachable travel distance in batch scoring. A bounded second-swing comparison preserves grouping, while planting and placement no longer force the first reserved tile to execute first. Tree positions still follow the spacing plan in `Planting`.
+
+Future development will focus on automation within selected areas, improving existing actions, pathfinding, and compatibility. Extra smart systems and unrelated features will be kept limited to control mod size and maintenance cost.
+
+
+## UI and key recording
+
+`ActionMenu` handles the shared action pools and input; `ActionMenuLayout` renders Cards, Sidebar, and List from the same controls. `ActionSettings` keeps a scrollable set of settings, while `ActionKeybinds` records one chord until release. `ModEntry.Buttons` routes input to the recorder before handling the panel shortcut. All settings use the same `ModConfig` instance and save callback as GMCM.
+
+`Overlay` renders Filled, Outline, or Grid during a drag. All styles use the same tile bounds, dimension badge, and topmost composition path. Default choices are Sidebar and Grid; missing fields get those defaults without replacing stored keybinds or action pools.

@@ -4,7 +4,7 @@
 
 <h1 align="center">行为学</h1>
 <p align="center">框选一片区域，让农夫完成琐碎日常。</p>
-<p align="center"><a href="https://github.com/SZnine/stardew-valley-mod/releases/tag/behavior-automation-v2.3.0">下载 2.3.0</a> · <a href="https://www.nexusmods.com/stardewvalley/mods/52289">Nexus Mods</a> · <a href="#操作">操作</a> · <a href="docs/CHANGELOG.zh-CN.md">更新记录</a></p>
+<p align="center"><a href="https://github.com/SZnine/stardew-valley-mod/releases/tag/behavior-automation-v2.3.1">下载 2.3.1</a> · <a href="https://www.nexusmods.com/stardewvalley/mods/52289">Nexus Mods</a> · <a href="#操作">操作</a> · <a href="docs/CHANGELOG.zh-CN.md">更新记录</a></p>
 
 通过框选安排农活、动物照料和农场改建。角色自动寻路，使用实际工具和材料，保留原版体力消耗与工具限制。
 

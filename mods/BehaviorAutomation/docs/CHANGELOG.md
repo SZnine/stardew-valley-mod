@@ -2,6 +2,10 @@
 
 [English](CHANGELOG.md) · [简体中文 / full history](CHANGELOG.zh-CN.md)
 
+## 2.3.1
+
+- Add the Nexus update key so SMAPI can notify players about newer versions.
+
 ## 2.3.0
 
 - Use sidebar icons and grid selections by default. Choose from three menu styles and three selection styles, and rebind the selection, panel, and cancel keys in F8 settings.

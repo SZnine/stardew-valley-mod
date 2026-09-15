@@ -1,9 +1,10 @@
 {
   "Name": "行为学",
   "Author": "sznine",
-  "Version": "2.3.0",
+  "Version": "2.3.1",
   "Description": "框选自动作业，图标选择行为，自动配工具、蓄力浇水与补水。",
   "UniqueID": "sznine.BehaviorAutomation",
+  "UpdateKeys": ["Nexus:52289"],
   "EntryDll": "BehaviorAutomation.dll",
   "MinimumApiVersion": "4.5.2",
   "MinimumGameVersion": "1.6.15",

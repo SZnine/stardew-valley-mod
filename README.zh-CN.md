@@ -10,7 +10,7 @@
 
 框选区域，使用已有工具和材料，自动完成农活、采集、动物照料和农场改建。
 
-**2.3.0** · [演示与操作](mods/BehaviorAutomation/README.zh-CN.md) · [Nexus Mods](https://www.nexusmods.com/stardewvalley/mods/52289) · [版本下载](https://github.com/SZnine/stardew-valley-mod/releases)
+**2.3.1** · [演示与操作](mods/BehaviorAutomation/README.zh-CN.md) · [Nexus Mods](https://www.nexusmods.com/stardewvalley/mods/52289) · [版本下载](https://github.com/SZnine/stardew-valley-mod/releases)
 
 ## 构建
 

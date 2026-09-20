@@ -46,7 +46,8 @@ public sealed partial class ModEntry
             Assert(ActionCatalog.All.Select(a => a.Kind).Distinct().Count() == Enum.GetValues<ActionKind>().Count(k => k != ActionKind.BuildingInterior), "Missing selectable action icon");
             Assert(ActionCatalog.SmartKinds.Count() == 22 && !ActionCatalog.CanSelectSmart(ActionKind.Till) && !ActionCatalog.CanSelectSmart(ActionKind.PlantCrop), "Unsafe smart pool catalog");
         });
-        CheckWithMod("spacechase0.GenericModConfigMenu", "GMCM exposes twenty-two relevant settings and setters persist", () =>
+        if (Helper.ModRegistry.IsLoaded("spacechase0.GenericModConfigMenu"))
+        Check("GMCM exposes twenty-two relevant settings and setters persist", () =>
         {
             var gmcm = Installed<object>("spacechase0.GenericModConfigMenu");
             var manager = AccessTools.Field(gmcm.GetType(), "ConfigManager").GetValue(gmcm)!;

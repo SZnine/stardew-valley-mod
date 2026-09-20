@@ -29,6 +29,9 @@ public sealed partial class WorkController
     private int revision;
     private List<WorkTarget>? routeCandidates;
     private int scytheStreak;
+    // Number of non-scythe operations completed while scythe work remained pending.
+    // It is a small starvation guard, not a global tool phase.
+    private int scytheDeferrals;
     private double routeAge;
     private double cooldown;
     private double refreshIn;
@@ -101,6 +104,7 @@ public sealed partial class WorkController
         }
         failedObstacles.Clear();
         scytheStreak = 0;
+        scytheDeferrals = 0;
         Paused = false;
         ManualMovement = false;
         movementMilliseconds = 0;
@@ -509,7 +513,7 @@ public sealed partial class WorkController
             // Pattern reservations determine spacing, not travel order. Start at a reachable
             // nearby seed/floor tile instead of always walking to the rectangle's top-left.
             routeCandidates = candidates;
-            search = new(Cell.Of(who), candidates, p => WorldTargets.CanStand(who.currentLocation, who, p), scytheFarmer: who, scytheStreak: scytheStreak, waterPlans: Board.Area is { } area ? Watering.Approaches(candidates, who, area, config()) : null, settings: config());
+            search = new(Cell.Of(who), candidates, p => WorldTargets.CanStand(who.currentLocation, who, p), scytheFarmer: who, scytheStreak: scytheStreak, scytheDeferrals: scytheDeferrals, waterPlans: Board.Area is { } area ? Watering.Approaches(candidates, who, area, config()) : null, settings: config());
         }
         State = "planning";
         search.Step();

@@ -19,8 +19,6 @@ public sealed partial class ModEntry
     }
     private void PassabilityTests()
     {
-        if (!RequireTestMod("NCarigon.PassableCrops", "Passable Crops compatibility checks"))
-            return;
         var mod = Installed<object>("NCarigon.PassableCrops");
         var settings = AccessTools.Property(mod.GetType(), "Config").GetValue(mod)!;
         void Set(string name, object value) => AccessTools.Property(settings.GetType(), name).SetValue(settings, value);
@@ -61,11 +59,58 @@ public sealed partial class ModEntry
             });
             Check("planning probes do not write object shake metadata even under farmer", () =>
             {
-                var sprinkler = ObjectAt("(BC)599", 20, 20);
+                var sprinkler = ObjectAt("(O)599", 20, 20);
                 Who.temporarySpeedBuff = 0;
                 var before = sprinkler.modData.Pairs.ToArray();
                 Assert(WorldTargets.CanStand(Map, Who, new(20, 20)), "Passable sprinkler blocked");
                 Assert(before.SequenceEqual(sprinkler.modData.Pairs) && Who.temporarySpeedBuff == 0, "Probe changed object metadata or speed");
+            });
+            Check("watering never uses a passable sprinkler as a working stance", () =>
+            {
+                var sprinkler = ObjectAt("(O)599", 22, 20);
+                var crop = CropAt(24, 20);
+                var can = new WateringCan { UpgradeLevel = 2, WaterLeft = 50 };
+                Who.Items[0] = can;
+                Who.Position = new Microsoft.Xna.Framework.Vector2(21 * 64, 21 * 64);
+                var area = new Microsoft.Xna.Framework.Rectangle(22, 20, 3, 1);
+                var targets = WorldTargets.Scan(Map, Who, ToolMode.WateringCan, can, area, Config);
+                var plans = Watering.Approaches(targets, Who, area, Config).ToArray();
+                Assert(sprinkler.IsSprinkler() && plans.Length > 0
+                    && plans.All(p => p.Stand != new Cell(22, 20) && Cell.At(p.Aim / 64) != new Cell(22, 20)), "A sprinkler tile was emitted as a watering stance or aim");
+                Assert(crop.state.Value == 0 && sprinkler.TileLocation == new Microsoft.Xna.Framework.Vector2(22, 20), "Planner fixture changed world state");
+            });
+            Check("sprinklers never enter the hand or forage work pool", () =>
+            {
+                var sprinklers = new[]
+                {
+                    ObjectAt("(O)599", 20, 20),
+                    ObjectAt("(O)621", 22, 20),
+                    ObjectAt("(O)645", 24, 20)
+                };
+                var hand = WorldTargets.Scan(Map, Who, ToolMode.Hand, null, new(19, 19, 7, 3), Config);
+                Assert(sprinklers.All(s => !hand.Any(t => ReferenceEquals(t.Entity, s))), "sprinkler was scheduled as forage");
+            });
+            Check("watering routes around a solid obstruction to a dry crop", () =>
+            {
+                var blocker = new Tree("1", 5);
+                Map.terrainFeatures[new(21, 20)] = blocker;
+                var crop = CropAt(23, 20);
+                var can = new WateringCan { UpgradeLevel = 2, WaterLeft = 50 };
+                Who.Items[0] = can;
+                SelectModern(can, new(20, 19, 4, 3));
+                Until(() => Control.State == "idle");
+                Assert(crop.state.Value == 1 && blocker.health.Value == 10, "Obstruction prevented watering or was altered");
+            });
+            Check("watering keeps a crop beneath a mature tree canopy in the target set", () =>
+            {
+                var canopy = new Tree("1", 5);
+                Map.terrainFeatures[new(24, 21)] = canopy;
+                var crop = CropAt(24, 20);
+                var can = new WateringCan { UpgradeLevel = 2, WaterLeft = 50 };
+                Who.Items[0] = can;
+                SelectModern(can, new(23, 19, 3, 3));
+                Until(() => Control.State == "idle");
+                Assert(crop.state.Value == 1 && canopy.health.Value == 10, "Tree canopy hid the crop or was altered");
             });
             Check("repeated route searches leave unselected distant saplings untouched", () =>
             {

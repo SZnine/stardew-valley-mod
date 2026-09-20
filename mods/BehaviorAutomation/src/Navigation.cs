@@ -17,6 +17,7 @@ public sealed class RouteSearch
     private readonly List<(Approach Plan, int Cost)> reached = new();
     private readonly int scytheTargets;
     private readonly int scytheStreak;
+    private readonly int scytheDeferrals;
     private Approach? nearestWater;
     private double waterScore = double.MaxValue;
     private int waterCost = int.MaxValue;
@@ -39,12 +40,13 @@ public sealed class RouteSearch
         get; private set;
     }
     public int Visited => previous.Count;
-    public RouteSearch(Cell start, IEnumerable<WorkTarget> targets, Func<Cell, bool> canStand, Func<Cell, int?>? clearanceCost = null, Farmer? scytheFarmer = null, int scytheStreak = 0, IEnumerable<Approach>? waterPlans = null, ModConfig? settings = null)
+    public RouteSearch(Cell start, IEnumerable<WorkTarget> targets, Func<Cell, bool> canStand, Func<Cell, int?>? clearanceCost = null, Farmer? scytheFarmer = null, int scytheStreak = 0, int scytheDeferrals = 0, IEnumerable<Approach>? waterPlans = null, ModConfig? settings = null)
     {
         this.start = start;
         this.canStand = canStand;
         this.clearanceCost = clearanceCost;
         this.scytheStreak = scytheStreak;
+        this.scytheDeferrals = scytheDeferrals;
         diagonal = settings?.AllowDiagonalMovement ?? true;
         lookahead = settings?.ScytheSearchTiles ?? 12;
         swingCost = settings?.ScytheSwingCost ?? 16;
@@ -254,6 +256,20 @@ public sealed class RouteSearch
     {
         if (nearestOther is null || Result is null)
             return;
+        if (Result.Target.Mode == ToolMode.Scythe)
+        {
+            // A nearby one-tile task may interrupt a sweep, but it must not starve a
+            // pending scythe cluster. This keeps mixed clearings responsive without
+            // leaving the final weed/grass target until the end of the queue.
+            const int maxDeferredNonScythe = 1;
+            if (scytheDeferrals >= maxDeferredNonScythe)
+                return;
+
+            // A dense native sweep already amortizes its action cost. Only replace it
+            // when the other task is strictly closer; otherwise keep the batch together.
+            if (Result.Coverage >= 2 && nearestOtherCost + 10 > distance[Result.Stand])
+                return;
+        }
         // An adjacent task wins over a dense patch. After repeated sweeps, allow a small
         // additional detour so nearby other work doesn't wait for the entire weed layer.
         int allowance = 2 + Math.Min(3, scytheStreak) * 2;

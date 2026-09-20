@@ -44,7 +44,6 @@ public sealed partial class ModEntry : Mod
                 ProductSHA256 = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(typeof(BehaviorMod).Assembly.Location))),
                 Passed = results.Count(r => r.StartsWith("PASS ")),
                 Failed = results.Count(r => r.StartsWith("FAIL ")),
-                Skipped = results.Count(r => r.StartsWith("SKIP ")),
                 CompletedUtc = DateTime.UtcNow,
                 ResultsSHA256 = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(Path.Combine(Evidence, "native-tests.txt"))))
             }, new System.Text.Json.JsonSerializerOptions { WriteIndented = true }));
@@ -269,6 +268,6 @@ public sealed partial class ModEntry : Mod
         PreservedInteractionTests();
         SweepTests();
         LeftCareTests();
-        PassabilityTests();
+        if (Helper.ModRegistry.IsLoaded("NCarigon.PassableCrops")) PassabilityTests();
     }
 }

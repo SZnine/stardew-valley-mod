@@ -2,6 +2,12 @@
 
 [English](CHANGELOG.md) · [简体中文 / full history](CHANGELOG.zh-CN.md)
 
+## 2.3.2
+
+- Exclude sprinklers from empty-hand and pickup scans before generic object handling, including vanilla sprinkler variants.
+- Keep passable sprinklers out of watering stances and charge anchors.
+- Preserve watering targets beneath mature tree canopies and around solid tree obstructions.
+
 ## 2.3.1
 
 - Add the Nexus update key so SMAPI can notify players about newer versions.

@@ -3,6 +3,7 @@ using System.Runtime.CompilerServices;
 using Microsoft.Xna.Framework;
 using StardewValley;
 using StardewValley.Enchantments;
+using StardewValley.Objects;
 using StardewValley.Tools;
 
 namespace Sznine.BehaviorAutomation;
@@ -45,6 +46,18 @@ public static class Watering
     public static IEnumerable<Approach> Approaches(IEnumerable<WorkTarget> targets, Farmer who, Rectangle area, ModConfig config)
     {
         var refill = new Dictionary<Cell, bool>();
+        // Collision compatibility mods can make sprinklers passable. They should
+        // still never become a working stance: a watering route must not walk up
+        // to a sprinkler and repeatedly try to use it as a target.
+        var standable = new Dictionary<Cell, bool>();
+        bool CanWaterStand(Cell tile)
+        {
+            if (IsSprinklerTile(who.currentLocation, tile))
+                return false;
+            if (!standable.TryGetValue(tile, out bool result))
+                standable[tile] = result = WorldTargets.CanStand(who.currentLocation, who, tile);
+            return result;
+        }
         foreach (var group in targets.Where(t => t.Kind == ActionKind.Water && t.Entity is not WaterSource && t.Tool is WateringCan).GroupBy(t => t.Tool))
         {
             var can = (WateringCan)group.Key!;
@@ -65,6 +78,8 @@ public static class Watering
                 {
                     if (!area.Contains(aim.X, aim.Y))
                         continue;
+                    if (IsSprinklerTile(who.currentLocation, aim))
+                        continue;
                     if (!refill.TryGetValue(aim, out bool isWater))
                         refill[aim] = isWater = who.currentLocation.CanRefillWateringCanOnTile(aim.X, aim.Y);
                     if (isWater)
@@ -77,17 +92,24 @@ public static class Watering
                         continue;
                     var direction = Cell.Directions[pattern.Facing];
                     foreach (var stand in new[] { aim, new Cell(aim.X - direction.X, aim.Y - direction.Y) })
-                        yield return new(hits.First(), stand, aim.Center, pattern.Facing, hits.Count, hits, pattern.Power);
+                        if (CanWaterStand(stand))
+                            yield return new(hits.First(), stand, aim.Center, pattern.Facing, hits.Count, hits, pattern.Power);
                 }
             }
         }
     }
 
+    private static bool IsSprinklerTile(GameLocation map, Cell tile)
+        => map.Objects.TryGetValue(tile.Tile, out var obj) && WorldTargets.IsSprinklerObject(obj);
+
     public static bool Valid(Approach plan, WorkBoard board, Farmer who, ModConfig config)
     {
-        if (plan.Target.Tool is not WateringCan can || board.Location != who.currentLocation || Cell.Of(who) != plan.Stand)
+        if (plan.Target.Tool is not WateringCan can || board.Location != who.currentLocation || Cell.Of(who) != plan.Stand
+            || IsSprinklerTile(who.currentLocation, plan.Stand) || !WorldTargets.CanStand(who.currentLocation, who, plan.Stand))
             return false;
         var aim = Cell.At(plan.Aim / 64);
+        if (IsSprinklerTile(who.currentLocation, aim))
+            return false;
         if (plan.Target.Entity is WaterSource)
             return who.currentLocation.CanRefillWateringCanOnTile(aim.X, aim.Y);
         if (who.currentLocation.CanRefillWateringCanOnTile(aim.X, aim.Y))

@@ -13,6 +13,11 @@ namespace Sznine.BehaviorAutomation;
 
 public static class WorldTargets
 {
+    internal static bool IsSprinklerObject(SObject obj) => obj.IsSprinkler()
+        // A few content packs preserve the vanilla item number while changing
+        // the qualified namespace from object to big-craftable.
+        || obj.QualifiedItemId is "(O)599" or "(O)621" or "(O)645"
+            or "(BC)599" or "(BC)621" or "(BC)645";
     private static bool Same(GameLocation map, Cell p, object obj) => obj switch
     {
         TerrainFeature t => map.terrainFeatures.TryGetValue(p.Tile, out var found) && ReferenceEquals(t, found),
@@ -82,6 +87,12 @@ public static class WorldTargets
         }
         if (entity is SObject obj && obj is not Chest && obj is not Fence)
         {
+            // Sprinklers are normal objects in the 1.6 item registry, but they
+            // must never enter the hand/forage pool. Touching one is not a
+            // useful automated action and can trap a watering session when a
+            // compatibility mod makes the tile passable.
+            if (IsSprinklerObject(obj))
+                return null;
             if (mode == ToolMode.Hand && AnimalCare.Grabber(obj) is { } grabber && !grabber.isEmpty())
                 return ActionKind.Machine;
             if (mode == ToolMode.Pickaxe && (obj.IsBreakableStone() || obj.Name.Contains("Boulder", StringComparison.Ordinal)))

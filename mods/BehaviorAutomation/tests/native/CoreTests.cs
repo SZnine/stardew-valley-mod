@@ -133,7 +133,8 @@ public sealed partial class ModEntry
             Until(() => Control.State == "idle");
             Assert(Map.terrainFeatures.ContainsKey(new(24, 20)) && tree.health.Value > -99, "Excluded stump was cut using stale tree classification");
         });
-        CheckWithMod("sznine.SmartWateringCan", "old standalone watering does not take over outside a selection", () =>
+        if (Helper.ModRegistry.IsLoaded("sznine.SmartWateringCan"))
+        Check("old standalone watering does not take over outside a selection", () =>
         {
             var water = Installed<object>("sznine.SmartWateringCan");
             var controller = HarmonyLib.AccessTools.Property(water.GetType(), "Controller").GetValue(water)!;

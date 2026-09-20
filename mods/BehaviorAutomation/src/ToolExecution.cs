@@ -80,7 +80,21 @@ public sealed partial class WorkController
             Pause(reason, true);
             return;
         }
-        scytheStreak = t.Mode == ToolMode.Scythe ? Math.Min(3, scytheStreak + 1) : 0;
+        if (t.Mode == ToolMode.Scythe)
+        {
+            scytheStreak = Math.Min(3, scytheStreak + 1);
+            scytheDeferrals = 0;
+        }
+        else
+        {
+            scytheStreak = 0;
+            // Board.Prune already removes stale targets after every action. Count the
+            // remaining mode directly here; re-running Pending can briefly disagree
+            // with the native animation state and would disable the starvation guard.
+            scytheDeferrals = Board.Jobs.Any(candidate => candidate.Mode == ToolMode.Scythe)
+                ? 1
+                : 0;
+        }
         if (t.Kind == ActionKind.Machine && t.Entity is StardewValley.Object collector && AnimalCare.Grabber(collector) is not null)
         {
             who.Halt();

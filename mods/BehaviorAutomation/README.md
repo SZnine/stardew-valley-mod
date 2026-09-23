@@ -4,7 +4,7 @@
 
 <h1 align="center">Behavior Automation</h1>
 <p align="center">Select an area. Let your farmer take care of the routine.</p>
-<p align="center"><a href="https://github.com/SZnine/stardew-valley-mod/releases/tag/behavior-automation-v2.3.2">Download 2.3.2</a> · <a href="https://www.nexusmods.com/stardewvalley/mods/52289">Nexus Mods</a> · <a href="#controls">Controls</a> · <a href="docs/CHANGELOG.md">Changelog</a></p>
+<p align="center"><a href="https://github.com/SZnine/stardew-valley-mod/releases/tag/behavior-automation-v2.3.3">Download 2.3.3</a> · <a href="https://www.nexusmods.com/stardewvalley/mods/52289">Nexus Mods</a> · <a href="#controls">Controls</a> · <a href="docs/CHANGELOG.md">Changelog</a></p>
 
 Automate everyday farm work, animal care, and farm renovation by selecting an area. Your farmer walks to each task using your tools and materials, with normal energy costs and tool requirements.
 

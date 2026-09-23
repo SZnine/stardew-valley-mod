@@ -110,7 +110,10 @@ public static class WorldTargets
                     return null;
                 if (mode == ToolMode.Hand && obj.bigCraftable.Value && obj.readyForHarvest.Value && obj.heldObject.Value is not null)
                     return ActionKind.Machine;
-                if (!obj.bigCraftable.Value && (obj.isSpawnedObject.Value || obj.canBeGrabbed.Value || obj.isForage()))
+                // Match GameLocation.checkAction's ground-pickup branch. CanBeGrabbed
+                // defaults to true, and isForage describes item categories, not world state.
+                // Crafting/interactive objects dispatch their own action before that branch.
+                if (!obj.bigCraftable.Value && obj.isSpawnedObject.Value && obj.Type is not ("Crafting" or "interactive"))
                     return ActionKind.Forage;
             }
         }

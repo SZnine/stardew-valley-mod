@@ -2,6 +2,11 @@
 
 [English](CHANGELOG.md) · [简体中文 / full history](CHANGELOG.zh-CN.md)
 
+## 2.3.3
+
+- Fix placed torches, drum blocks, flute blocks, jack-o-lanterns and similar props being selected as ground pickups, causing repeated interactions or stalled work.
+- Follow native ground-pickup state across empty-hand, scythe, left-click extra actions and right-click smart work while preserving normal gathering and machine output collection.
+
 ## 2.3.2
 
 - Exclude sprinklers from empty-hand and pickup scans before generic object handling, including vanilla sprinkler variants.

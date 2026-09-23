@@ -254,6 +254,7 @@ public sealed partial class ModEntry : Mod
     private void Test()
     {
         CoreTests();
+        GroundPickupTests();
         ExpansionTests();
         UiSettingsTests();
         ToolRestrictionTests();

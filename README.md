@@ -10,7 +10,7 @@ Small, independent mods for everyday life in Stardew Valley. Each mod has its ow
 
 Select an area to automate farm work, gathering, animal care, and renovation with your existing tools and materials.
 
-**2.3.1** · [Demos & controls](mods/BehaviorAutomation/README.md) · [Nexus Mods](https://www.nexusmods.com/stardewvalley/mods/52289) · [Releases](https://github.com/SZnine/stardew-valley-mod/releases)
+**2.3.3** · [Demos & controls](mods/BehaviorAutomation/README.md) · [Nexus Mods](https://www.nexusmods.com/stardewvalley/mods/52289) · [Releases](https://github.com/SZnine/stardew-valley-mod/releases)
 
 ## Build
 

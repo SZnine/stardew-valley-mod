@@ -40,7 +40,7 @@ public sealed partial class ModEntry
             var stone = ObjectAt("(O)343", 29, 29);
             var pick = new Pickaxe(); Who.Items[0] = pick;
             var targets = WorldTargets.Scan(Map, Who, ToolMode.Pickaxe, pick, new(29, 29, 1, 1), Config);
-            var search = new RouteSearch(Cell.Of(Who), targets, p => WorldTargets.CanStand(Map, Who, p));
+            var search = new RouteSearch(Cell.Of(Who), ActionPlans.Adjacent(targets), p => WorldTargets.CanStand(Map, Who, p));
             while (!search.Finished) search.Step();
             var path = search.Path(); var previous = Cell.Of(Who); double length = 0; bool diagonal = false;
             foreach (var point in path)
@@ -77,7 +77,7 @@ public sealed partial class ModEntry
         Check("diagonal routing cannot squeeze between blocked corners", () =>
         {
             var target = new WorkTarget { Entity = new Cell(3, 3), Origin = new(3, 3), Area = new(3, 3, 1, 1), Kind = ActionKind.Stone };
-            var route = new RouteSearch(new(0, 0), new[] { target }, p => p.X >= 0 && p.Y >= 0 && p.X < 5 && p.Y < 5 && p != new Cell(1, 0) && p != new Cell(0, 1));
+            var route = new RouteSearch(new(0, 0), ActionPlans.Adjacent(new[] { target }), p => p.X >= 0 && p.Y >= 0 && p.X < 5 && p.Y < 5 && p != new Cell(1, 0) && p != new Cell(0, 1));
             while (!route.Finished) route.Step();
             Assert(route.Result is null, "Crossed an impassable diagonal corner");
         });
@@ -88,7 +88,7 @@ public sealed partial class ModEntry
             foreach (bool diagonal in new[] { false, true })
             {
                 Reset(); Config.AllowDiagonalMovement = diagonal;
-                var route = new RouteSearch(Cell.Of(Who), new[] { target }, p => WorldTargets.CanStand(Map, Who, p), settings: Config);
+                var route = new RouteSearch(Cell.Of(Who), ActionPlans.Adjacent(new[] { target }), p => WorldTargets.CanStand(Map, Who, p), settings: Config);
                 while (!route.Finished) route.Step();
                 var points = route.Path(); var walker = new WalkRoute(Who, Map, points); Who.controller = walker;
                 double distance = 0; int frames = 0;

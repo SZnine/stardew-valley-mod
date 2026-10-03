@@ -16,6 +16,7 @@ public static class ActionCatalog
         new(ActionKind.Artifact, "(O)590", "farm"), new(ActionKind.PlantCrop, "(O)472", "farm"),
         new(ActionKind.PlantWildTree, "(O)309", "farm"), new(ActionKind.PlantFruitTree, "(O)628", "farm"),
         new(ActionKind.PlantTea, "(O)251", "farm"),
+        new(ActionKind.Fertilize, "(O)368", "farm"), new(ActionKind.RemoveSoil, "(T)Pickaxe", "farm"),
         new(ActionKind.PlaceFloor, "(O)328", "place"), new(ActionKind.PlaceObject, "(O)599", "place"),
         new(ActionKind.RemoveFloor, "(O)328", "place"),
         new(ActionKind.Weed, "(O)0", "clear"), new(ActionKind.Grass, "(O)297", "clear"),
@@ -27,6 +28,7 @@ public static class ActionCatalog
     };
     public static bool CanSelectSmart(ActionKind kind) => Enum.IsDefined(typeof(ActionKind), kind)
         && kind is not (ActionKind.BuildingInterior or ActionKind.Till or ActionKind.Artifact or ActionKind.PlantCrop
-            or ActionKind.PlantWildTree or ActionKind.PlantFruitTree or ActionKind.PlantTea or ActionKind.PlaceFloor or ActionKind.PlaceObject or ActionKind.RemoveFloor);
+            or ActionKind.PlantWildTree or ActionKind.PlantFruitTree or ActionKind.PlantTea or ActionKind.PlaceFloor or ActionKind.PlaceObject or ActionKind.RemoveFloor
+            or ActionKind.RemoveSoil or ActionKind.Fertilize);
     public static IEnumerable<ActionKind> SmartKinds => All.Select(a => a.Kind).Where(CanSelectSmart);
 }

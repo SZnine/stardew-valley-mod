@@ -4,7 +4,7 @@
 
 <h1 align="center">行为学</h1>
 <p align="center">框选一片区域，让农夫完成琐碎日常。</p>
-<p align="center"><a href="https://github.com/SZnine/stardew-valley-mod/releases/tag/behavior-automation-v2.3.3">下载 2.3.3</a> · <a href="https://www.nexusmods.com/stardewvalley/mods/52289">Nexus Mods</a> · <a href="#操作">操作</a> · <a href="docs/CHANGELOG.zh-CN.md">更新记录</a></p>
+<p align="center"><a href="https://github.com/SZnine/stardew-valley-mod/releases/tag/behavior-automation-v2.4.0-beta.3">下载 2.4.0-beta.3</a> · <a href="https://www.nexusmods.com/stardewvalley/mods/52289">Nexus Mods</a> · <a href="#操作">操作</a> · <a href="docs/CHANGELOG.zh-CN.md">更新记录</a></p>
 
 通过框选安排农活、动物照料和农场改建。角色自动寻路，使用实际工具和材料，保留原版体力消耗与工具限制。
 
@@ -55,11 +55,13 @@
 | 页面 | 作用 |
 | :--- | :--- |
 | **左键基础** | 手持选定工具、种子或材料时执行的行为。 |
-| **左键全局** | 不限手持道具的附加行为，默认包含采集与动物日常照料。 |
+| **左键全局** | 不限手持道具的附加行为，默认包含采集、动物照料、杂草、牧草与枯苗。 |
 | **右键工具池** | 允许自动选择工具的行为。 |
 | **设置** | 样式、快捷键、选框尺寸、移镜、建筑内作业、仓库工具和树干间距。 |
 
 安装 [Generic Mod Config Menu](https://www.nexusmods.com/stardewvalley/mods/5098) 后，可设置快捷键、移动取消时间、斜向寻路、镰刀走位、补水、清障、仓库工具和体力下限。未安装时，F8 面板仍可使用。
+
+左键全局优先使用可用镰刀收割、采集和清理杂草。手持肥料后 Shift + 左键框选即可施肥。空耕地浇水与镐子清除均默认关闭，可在 F8 或 GMCM 启用；清除会保护现有作物。
 
 ## 安装与更新
 

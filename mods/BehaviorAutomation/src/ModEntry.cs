@@ -32,7 +32,7 @@ public sealed class ModEntry : Mod
     public WorkController Controller => controllers.Value;
     public ModEntry()
     {
-        controllers = new(() => new(() => config, Notice));
+        controllers = new(() => new(() => config, Notice, message => Monitor.Log(message, LogLevel.Debug)));
     }
 
     public override void Entry(IModHelper helper)
@@ -90,6 +90,9 @@ public sealed class ModEntry : Mod
         api.AddNumberOption(ModManifest, () => config.ScytheSearchTiles, v => config.ScytheSearchTiles = (int)v, () => T("config.scythe-distance"), () => T("config.scythe-distance-tip"), min: 2, max: 24, interval: 1);
         api.AddNumberOption(ModManifest, () => config.ScytheSwingCost, v => config.ScytheSwingCost = (int)v, () => T("config.scythe-batch"), () => T("config.scythe-batch-tip"), min: 4, max: 32, interval: 1);
         api.AddBoolOption(ModManifest, () => config.AutoRefillWateringCan, v => config.AutoRefillWateringCan = v, () => T("config.refill"));
+        api.AddBoolOption(ModManifest, () => config.WaterEmptySoil, v => config.WaterEmptySoil = v, () => T("config.water-empty"), () => T("config.water-empty-tip"));
+        api.AddBoolOption(ModManifest, () => config.Actions.Contains(ActionKind.RemoveSoil), v => { if (v) config.Actions.Add(ActionKind.RemoveSoil); else config.Actions.Remove(ActionKind.RemoveSoil); },
+            () => T("action.RemoveSoil"), () => T("config.remove-soil-tip"));
         api.AddBoolOption(ModManifest, () => config.ClearObstacles, v => config.ClearObstacles = v, () => T("config.clearance"));
         api.AddBoolOption(ModManifest, () => config.PanWhileSelecting, v => config.PanWhileSelecting = v, () => T("config.pan"));
         api.AddBoolOption(ModManifest, () => config.ShowSelectionSize, v => config.ShowSelectionSize = v, () => T("config.selection-size"));

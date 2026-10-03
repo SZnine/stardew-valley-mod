@@ -8,52 +8,14 @@ namespace Sznine.BehaviorAutomation;
 
 public sealed partial class WorkController
 {
-    private void AdvanceCharge(Farmer who, Operation op, double milliseconds)
-    {
-        int power = op.Approach.Power;
-        if (who.CurrentTool is not WateringCan || op.Approach.Target.Entity is WaterSource)
-            power = 0;
-        if (who.toolPower.Value >= power)
-        {
-            op.Released = true;
-            who.EndUsingTool();
-            return;
-        }
-        double interval = 600 * who.CurrentTool!.AnimationSpeedModifier;
-        op.Charge += milliseconds;
-        who.toolHoldStartTime.Value = (int)interval;
-        who.toolHold.Value = (int)Math.Max(1, interval - op.Charge);
-        if (op.Charge >= interval)
-        {
-            op.Charge -= interval;
-            who.toolPowerIncrease();
-        }
-    }
-
-    // Only cancel an owned, still-held charge. Released native swings finish through their normal callbacks.
-    private void CancelCharge()
-    {
-        if (Active is not { Released: false } op || owner is null || !owner.UsingTool || !owner.canReleaseTool
-            || !ReferenceEquals(owner.CurrentTool, op.Approach.Target.Tool))
-            return;
-        owner.FarmerSprite.StopAnimation();
-        owner.FarmerSprite.PauseForSingleAnimation = false;
-        owner.UsingTool = false;
-        owner.canReleaseTool = false;
-        owner.CanMove = !Game1.freezeControls && owner.freezePause <= 0 && !Game1.eventUp && !owner.isEating;
-        owner.toolPower.Value = 0;
-        owner.toolHold.Value = 0;
-        owner.stopJittering();
-        owner.lastClick = Vector2.Zero;
-        Active = null;
-        ReturnTool();
-    }
     private void Start(Farmer who, Approach next)
     {
         if (next.Target.Mode == ToolMode.Scythe && next.Target.Tool is MeleeWeapon scythe)
         {
             // Native walking stops within a few pixels of the tile center. Recheck the actual sweep after arrival.
-            var live = ScythePlanner.AtStand(Board.Jobs.Where(t => WorldTargets.Pending(who.currentLocation, t, config()) && WorldTargets.Unable(t, who, config()) is null),
+            var live = ScythePlanner.AtStand(Board.Jobs.Where(t => t.Mode == ToolMode.Scythe && ReferenceEquals(t.Tool, scythe)
+                && (next.Hits?.Contains(t) ?? ReferenceEquals(next.Target, t)) && WorldTargets.Pending(who.currentLocation, t, config())
+                && WorldTargets.Unable(t, who, config()) is null),
                 who, scythe, next.Facing, next.Coverage > 1 ? next.Coverage : int.MaxValue);
             if (live is null)
             {
@@ -80,29 +42,15 @@ public sealed partial class WorkController
             Pause(reason, true);
             return;
         }
-        if (t.Mode == ToolMode.Scythe)
-        {
-            scytheStreak = Math.Min(3, scytheStreak + 1);
-            scytheDeferrals = 0;
-        }
-        else
-        {
-            scytheStreak = 0;
-            // Board.Prune already removes stale targets after every action. Count the
-            // remaining mode directly here; re-running Pending can briefly disagree
-            // with the native animation state and would disable the starvation guard.
-            scytheDeferrals = Board.Jobs.Any(candidate => candidate.Mode == ToolMode.Scythe)
-                ? 1
-                : 0;
-        }
+        Board.Coordinator.Started(next);
+        double before = WorldTargets.Progress(t);
         if (t.Kind == ActionKind.Machine && t.Entity is StardewValley.Object collector && AnimalCare.Grabber(collector) is not null)
         {
             who.Halt();
             who.faceDirection(next.Facing);
             State = "acting";
             AnimalCare.CollectGrabber(collector, who);
-            Board.Prune(config());
-            cooldown = 100;
+            CompleteImmediate(who, t, before, 100);
             return;
         }
         if (t.Entity is FeedSpot feed)
@@ -112,8 +60,7 @@ public sealed partial class WorkController
             State = "acting";
             if (!AnimalCare.Feed(who, feed))
                 Pause("hay", true);
-            Board.Prune(config());
-            cooldown = 100;
+            CompleteImmediate(who, t, before, 100);
             return;
         }
         if (t.Kind == ActionKind.Pet && t.Entity is Character animal)
@@ -133,13 +80,7 @@ public sealed partial class WorkController
                     pet.checkAction(who, who.currentLocation);
             }
             finally { who.Items[heldSlot] = held!; }
-            if (WorldTargets.Pending(who.currentLocation, t, config()) && ++t.FailedActions >= 3)
-            {
-                Board.Reject(t);
-                Pause("no-effect", true);
-            }
-            Board.Prune(config());
-            cooldown = 100;
+            CompleteImmediate(who, t, before, 100);
             return;
         }
         if (t.Tool is { } needed && !who.Items.Contains(needed))
@@ -161,13 +102,13 @@ public sealed partial class WorkController
             var stock = Placement.FindStock(who, template);
             if (stock is null)
             {
-                Pause(t.Mode == ToolMode.Place ? "materials" : "seeds", true);
+                Pause(t.Mode switch { ToolMode.Place => "materials", ToolMode.Fertilizer => "fertilizer", _ => "seeds" }, true);
                 return;
             }
             who.CurrentToolIndex = who.Items.IndexOf(stock);
             who.Halt();
             who.faceDirection(next.Facing);
-            State = t.Mode == ToolMode.Place ? "placing" : "planting";
+            State = t.Mode switch { ToolMode.Place => "placing", ToolMode.Fertilizer => "fertilizing", _ => "planting" };
             // Native placement owns stack consumption and world state; the plan only selects the tile.
             if (t.Mode != ToolMode.Place && who.currentLocation.Objects.GetValueOrDefault(t.Origin.Tile) is IndoorPot pot)
             {
@@ -176,13 +117,7 @@ public sealed partial class WorkController
             }
             else
                 Utility.tryToPlaceItem(who.currentLocation, stock, (int)next.Aim.X, (int)next.Aim.Y);
-            if (WorldTargets.Pending(who.currentLocation, t, config()) && ++t.FailedActions >= 3)
-            {
-                Board.Reject(t);
-                Pause("no-effect", true);
-            }
-            Board.Prune(config());
-            cooldown = 180;
+            CompleteImmediate(who, t, before, 180);
             return;
         }
         int slot = t.Tool is null ? ToolStorage.EmptySlot(who) : who.Items.IndexOf(t.Tool);
@@ -216,13 +151,7 @@ public sealed partial class WorkController
                     who.currentLocation.checkAction(new xTile.Dimensions.Location(t.Origin.X, t.Origin.Y), Game1.viewport, who);
                     break;
             }
-            if (WorldTargets.Pending(who.currentLocation, t, config()) && ++t.FailedActions >= 3)
-            {
-                Board.Reject(t);
-                Pause("no-effect", true);
-            }
-            Board.Prune(config());
-            cooldown = 250;
+            CompleteImmediate(who, t, before, 250);
             return;
         }
         who.toolPower.Value = 0;
@@ -230,9 +159,25 @@ public sealed partial class WorkController
         Active = new()
         {
             Approach = next,
+            Location = who.currentLocation,
             Before = WorldTargets.Progress(t),
             Generation = Board.Generation
         };
         who.BeginUsingTool();
     }
+    private void CompleteImmediate(Farmer who, WorkTarget target, double before, int delay)
+    {
+        if (WorldTargets.Pending(who.currentLocation, target, config()) && Math.Abs(WorldTargets.Progress(target) - before) < .001)
+        {
+            if (++target.FailedActions >= 3)
+            {
+                Board.Reject(target);
+                Pause("no-effect", true);
+            }
+        }
+        else target.FailedActions = 0;
+        Board.Prune(config());
+        cooldown = delay;
+    }
+
 }

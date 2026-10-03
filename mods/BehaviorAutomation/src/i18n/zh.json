@@ -123,5 +123,13 @@
   "style.selection.Grid": "C · 网格",
   "menu.reset": "重置",
   "menu.bind-listening": "按键后松开 · Esc 取消",
-  "menu.bind-tip": "点击录入按键或组合键，松开保存；Esc 取消。"
+  "menu.bind-tip": "点击录入按键或组合键，松开保存；Esc 取消。",
+  "action.Fertilize": "施肥 · 手持肥料",
+  "short.Fertilize": "施肥",
+  "action.RemoveSoil": "清除空耕地 · 手持镐子",
+  "short.RemoveSoil": "清除空耕地",
+  "notice.fertilizer": "已暂停：手持的同种肥料已用完，请补充后重新框选。",
+  "config.water-empty": "允许浇灌空耕地",
+  "config.water-empty-tip": "默认关闭。启用后浇灌未种作物的已耕地，仍遵守选区与行为开关。",
+  "config.remove-soil-tip": "默认关闭。手持镐子框选时清除没有作物、也没有放置物覆盖的耕地；不会损毁现有作物。"
 }

@@ -13,15 +13,12 @@ public sealed class WorkBoard
     private bool includeBuildings;
     private readonly HashSet<(object Entity, ActionKind Kind)> rejected = new();
     public readonly List<WorkTarget> Jobs = new();
+    public WorkCoordinator Coordinator { get; } = new();
     public GameLocation? Location
     {
         get; private set;
     }
     public Item? LastSelectedItem
-    {
-        get; private set;
-    }
-    public int Revision
     {
         get; private set;
     }
@@ -32,7 +29,6 @@ public sealed class WorkBoard
     public bool HasSelection => selection is not null;
     public bool Smart => selection?.Smart == true;
     public Rectangle? Area => selection?.Area;
-    public bool OrderedPlanting => selection is { Smart: false, Material: not null };
     public Item? SelectionIcon => (Item?)selection?.Tool ?? selection?.Material;
 
     public (int Added, int Removed) Select(GameLocation map, Farmer who, ToolMode mode, Tool? tool,
@@ -53,7 +49,7 @@ public sealed class WorkBoard
                 cells.Add(new(x, y));
         Location = map;
         LastSelectedItem = who.CurrentItem;
-        if (smart || mode is not (ToolMode.Seeds or ToolMode.TreeSeeds or ToolMode.Place))
+        if (smart || mode is not (ToolMode.Seeds or ToolMode.TreeSeeds or ToolMode.Place or ToolMode.Fertilizer))
             material = null;
         else
             material ??= who.CurrentItem?.getOne() as StardewValley.Object;
@@ -73,13 +69,21 @@ public sealed class WorkBoard
         if (selection is not { } s || Location is null)
             return new();
         var map = interior ?? Location;
-        var targets = s.Smart ? SmartSelection.Scan(map, who, s.Mode, s.Tool, area ?? s.Area, config, obstacles)
-            : SmartSelection.ScanLeft(map, who, s.Tool, area ?? s.Area, config);
-        if (!s.Smart && (s.Mode is not (ToolMode.Hand or ToolMode.Auto or ToolMode.Seeds or ToolMode.TreeSeeds or ToolMode.Place) || s.Mode == ToolMode.Hand && LastSelectedItem is null))
+        var entities = WorldTargets.Capture(map, area ?? s.Area);
+        var targets = SmartSelection.ScanCore(map, who, s.Smart ? s.Mode : ModeInfo.From(s.Tool) ?? ToolMode.Hand,
+            s.Tool, area ?? s.Area, config, s.Smart && obstacles, s.Smart ? WorkScope.Smart : WorkScope.LeftExtra, entities);
+        if (!s.Smart && (s.Mode is not (ToolMode.Hand or ToolMode.Auto or ToolMode.Seeds or ToolMode.TreeSeeds or ToolMode.Place or ToolMode.Fertilizer) || s.Mode == ToolMode.Hand && LastSelectedItem is null))
         {
-            var held = WorldTargets.Scan(map, who, s.Mode, s.Tool, area ?? s.Area, config, includeTill: !obstacles);
-            // Prefer the selected tool for the same task, keeping distinct follow-up actions.
-            targets.RemoveAll(t => held.Any(h => ReferenceEquals(h.Entity, t.Entity) && h.Kind == t.Kind));
+            var held = WorldTargets.ScanCaptured(map, who, s.Mode, s.Tool, area ?? s.Area, config, entities, includeTill: !obstacles);
+            // Keep an available global scythe choice; other held tasks retain their selected tool.
+            var sweepKeys = targets.Where(t => SmartSelection.PreferScythe(t) && WorldTargets.Unable(t, who, config) is null)
+                .Select(t => (t.Entity, t.Kind)).ToHashSet();
+            held.RemoveAll(t => t.Mode != ToolMode.Scythe && sweepKeys.Contains((t.Entity, t.Kind)));
+            var heldKeys = held.Select(t => (t.Entity, t.Kind)).ToHashSet();
+            targets.RemoveAll(t => heldKeys.Contains((t.Entity, t.Kind)));
+            // Explicitly removing a soil tile also removes its need for incidental watering.
+            var removedSoils = held.Where(t => t.Kind == ActionKind.RemoveSoil).Select(t => t.Entity).ToHashSet();
+            targets.RemoveAll(t => t.Kind == ActionKind.Water && removedSoils.Contains(t.Entity));
             targets.AddRange(held);
         }
         if (includeBuildings && config.WorkInsideBuildings && interior is null && !obstacles)
@@ -121,12 +125,9 @@ public sealed class WorkBoard
                 break;
             if (rejected.Contains((target.Entity, target.Kind)) || !existing.Add((target.Entity, target.Kind)))
                 continue;
-            target.Group = target.Mode == ToolMode.Hand ? 1 : 2;
             Jobs.Add(target);
             added++;
         }
-        if (added > 0)
-            Revision++;
         return added;
     }
 
@@ -148,7 +149,7 @@ public sealed class WorkBoard
         rejected.Clear();
         Location = null;
         LastSelectedItem = null;
-        Revision++;
+        Coordinator.Clear();
         Generation = System.Threading.Interlocked.Increment(ref nextGeneration);
     }
 }

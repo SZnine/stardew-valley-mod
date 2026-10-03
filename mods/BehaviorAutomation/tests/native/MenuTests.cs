@@ -47,13 +47,13 @@ public sealed partial class ModEntry
             Assert(ActionCatalog.SmartKinds.Count() == 22 && !ActionCatalog.CanSelectSmart(ActionKind.Till) && !ActionCatalog.CanSelectSmart(ActionKind.PlantCrop), "Unsafe smart pool catalog");
         });
         if (Helper.ModRegistry.IsLoaded("spacechase0.GenericModConfigMenu"))
-        Check("GMCM exposes twenty-two relevant settings and setters persist", () =>
+        Check("GMCM exposes twenty-four relevant settings and setters persist", () =>
         {
             var gmcm = Installed<object>("spacechase0.GenericModConfigMenu");
             var manager = AccessTools.Field(gmcm.GetType(), "ConfigManager").GetValue(gmcm)!;
             var setup = AccessTools.Method(manager.GetType(), "Get").Invoke(manager, new object[] { Behavior.ModManifest, false })!;
             var options = ((IEnumerable)AccessTools.Method(setup.GetType(), "GetAllOptions").Invoke(setup, null)!).Cast<object>().ToArray();
-            Assert(options.Length == 22, "Missing operational configuration: " + options.Length);
+            Assert(options.Length == 24, "Missing operational configuration: " + options.Length);
             foreach (var option in options)
             {
                 var value = AccessTools.Property(option.GetType(), "Value");
@@ -70,7 +70,7 @@ public sealed partial class ModEntry
             var legacy = new ModConfig { ConfigVersion = 3, ReserveStamina = 27, UseStoredTools = false, SelectKey = KeybindList.Parse("LeftControl") };
             legacy.Actions.Remove(ActionKind.WildTree);
             legacy.Migrate();
-            Assert(legacy.ConfigVersion == 9 && !legacy.Allows(ActionKind.WildTree) && !legacy.Allows(ActionKind.WildTree, WorkScope.Smart) && legacy.ReserveStamina == 27 && !legacy.UseStoredTools && legacy.SelectKey.ToString() == "LeftControl", "Migration changed user choices");
+            Assert(legacy.ConfigVersion == 10 && !legacy.Allows(ActionKind.WildTree) && !legacy.Allows(ActionKind.WildTree, WorkScope.Smart) && legacy.ReserveStamina == 27 && !legacy.UseStoredTools && legacy.SelectKey.ToString() == "LeftControl", "Migration changed user choices");
         });
         Check("native action menu switches all three pools and saves immediately", () =>
         {

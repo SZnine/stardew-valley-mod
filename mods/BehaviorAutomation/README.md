@@ -4,7 +4,7 @@
 
 <h1 align="center">Behavior Automation</h1>
 <p align="center">Select an area. Let your farmer take care of the routine.</p>
-<p align="center"><a href="https://github.com/SZnine/stardew-valley-mod/releases/tag/behavior-automation-v2.3.3">Download 2.3.3</a> · <a href="https://www.nexusmods.com/stardewvalley/mods/52289">Nexus Mods</a> · <a href="#controls">Controls</a> · <a href="docs/CHANGELOG.md">Changelog</a></p>
+<p align="center"><a href="https://github.com/SZnine/stardew-valley-mod/releases/tag/behavior-automation-v2.4.0-beta.3">Download 2.4.0-beta.3</a> · <a href="https://www.nexusmods.com/stardewvalley/mods/52289">Nexus Mods</a> · <a href="#controls">Controls</a> · <a href="docs/CHANGELOG.md">Changelog</a></p>
 
 Automate everyday farm work, animal care, and farm renovation by selecting an area. Your farmer walks to each task using your tools and materials, with normal energy costs and tool requirements.
 
@@ -53,13 +53,15 @@ The **F8** panel has three independent action pages and a settings page. Click a
 | Page | Applies to |
 | :--- | :--- |
 | **Left held item** | Work performed with the selected tool, seed, or material. |
-| **Left extras** | Additional actions regardless of the held item; gathering and daily animal care are enabled by default. |
+| **Left extras** | Additional actions regardless of the held item; gathering, daily animal care, weeds, grass, and dead crops are enabled by default. |
 | **Right tool pool** | Actions allowed to choose their tools automatically. |
 | **Settings** | Menu and selection styles, three hotkeys, selection dimensions, camera panning, interior work, stored tools, and tree spacing. |
 
 With [Generic Mod Config Menu](https://www.nexusmods.com/stardewvalley/mods/5098), configure hotkeys, movement cancellation, diagonal paths, scythe planning, refilling, obstacle clearing, stored tools, and energy reserve. The F8 panel works without it.
 
 Use sidebar icons and grid selections by default. Choose from three menu styles and three selection styles, and rebind the selection, panel, and cancel keys in F8 settings.
+
+Left extras prefer an available scythe for harvesting, forage and weeds. Hold fertilizer and Shift + left-drag to fertilize. Empty tilled-soil watering and pickaxe removal are optional and disabled by default; removal protects existing crops. Configure them in F8 or GMCM.
 
 ## Install & update
 

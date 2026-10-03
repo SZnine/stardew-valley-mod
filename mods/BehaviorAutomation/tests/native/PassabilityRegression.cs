@@ -129,7 +129,7 @@ public sealed partial class ModEntry
                 var targets = WorldTargets.Scan(Map, Who, ToolMode.WateringCan, can, new(30, 20, 1, 1), Config);
                 for (int repeat = 0; repeat < 3; repeat++)
                 {
-                    var search = new RouteSearch(Cell.Of(Who), targets, p => WorldTargets.CanStand(Map, Who, p));
+                    var search = new RouteSearch(Cell.Of(Who), ActionPlans.Adjacent(targets), p => WorldTargets.CanStand(Map, Who, p));
                     while (!search.Finished)
                         search.Step();
                     Assert(search.Result is not null, "No route");

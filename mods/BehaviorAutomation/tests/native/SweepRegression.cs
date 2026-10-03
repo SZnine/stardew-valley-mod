@@ -92,7 +92,7 @@ public sealed partial class ModEntry
             {
                 var plans = ScythePlanner.Approaches(targets, Who).ToArray();
                 Assert(ReferenceEquals(Game1.random, probe) && probe.Next() == new Random(173).Next(), "Planner altered native random stream");
-                var route = new RouteSearch(Cell.Of(Who), targets, p => WorldTargets.CanStand(Map, Who, p), scytheFarmer: Who);
+                var route = new RouteSearch(Cell.Of(Who), ScythePlanner.Approaches(targets, Who), p => WorldTargets.CanStand(Map, Who, p), style: WorkStyle.Sweep, targetCount: targets.Count);
                 while (!route.Finished)
                     route.Step();
                 Assert(route.Result is { Coverage: > 1 } && route.Path().All(p => WorldTargets.CanStand(Map, Who, p)), "No reachable group stance");

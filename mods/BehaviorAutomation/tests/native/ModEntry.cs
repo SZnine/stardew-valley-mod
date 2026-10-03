@@ -26,6 +26,7 @@ public sealed partial class ModEntry : Mod
     private static readonly MethodInfo Animate = AccessTools.Method(typeof(FarmerSprite), "animateOnce", new[] { typeof(GameTime) });
     public override void Entry(IModHelper helper)
     {
+        if (File.Exists(Path.Combine(helper.DirectoryPath, "realtime.json"))) { InstallRealtime(); return; }
         helper.Events.GameLoop.UpdateTicked += (_, _) =>
         {
             if (++ticks != 100)
@@ -167,6 +168,7 @@ public sealed partial class ModEntry : Mod
         Config.ScytheSearchTiles = 12;
         Config.ScytheSwingCost = 16;
         Config.AutoRefillWateringCan = true;
+        Config.WaterEmptySoil = false;
         Config.ClearObstacles = true;
         Config.PanWhileSelecting = true;
         Config.ShowSelectionSize = true;
@@ -255,6 +257,10 @@ public sealed partial class ModEntry : Mod
     {
         CoreTests();
         GroundPickupTests();
+        WorkLifecycleTests();
+        WorkPassTests();
+        CoordinatorTests();
+        FieldActionsTests();
         ExpansionTests();
         UiSettingsTests();
         ToolRestrictionTests();

@@ -73,7 +73,6 @@ public sealed partial class WorkController
         emptyPasses = 0;
         quietMilliseconds = 0;
         cooldown = 0;
-        revision = -1;
         Resume();
         return true;
     }

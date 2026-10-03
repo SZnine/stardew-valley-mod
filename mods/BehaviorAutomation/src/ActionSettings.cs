@@ -28,6 +28,7 @@ public sealed partial class ActionMenu
             new Setting("config.pan-speed", () => config.SelectionPanSpeed.ToString(), d => config.SelectionPanSpeed += d, SettingKind.Number),
             new Setting("config.interiors", () => Enabled(config.WorkInsideBuildings), _ => config.WorkInsideBuildings = !config.WorkInsideBuildings, SettingKind.Toggle, "config.interiors-tip"),
             new Setting("config.stored-tools", () => Enabled(config.UseStoredTools), _ => config.UseStoredTools = !config.UseStoredTools, SettingKind.Toggle),
+            new Setting("config.water-empty", () => Enabled(config.WaterEmptySoil), _ => config.WaterEmptySoil = !config.WaterEmptySoil, SettingKind.Toggle, "config.water-empty-tip"),
             new Setting("config.wild-spacing", () => config.WildTreeSpacing.ToString(), d => config.WildTreeSpacing += d, SettingKind.Number, "config.spacing-tip"),
             new Setting("config.fruit-spacing", () => config.FruitTreeSpacing.ToString(), d => config.FruitTreeSpacing += d, SettingKind.Number, "config.spacing-tip")
         };

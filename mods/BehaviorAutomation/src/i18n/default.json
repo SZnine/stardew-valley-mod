@@ -123,5 +123,13 @@
   "style.selection.Grid": "C · Grid",
   "menu.reset": "Reset",
   "menu.bind-listening": "Press and release · Esc cancels",
-  "menu.bind-tip": "Click, press a key or chord, then release to save. Esc cancels."
+  "menu.bind-tip": "Click, press a key or chord, then release to save. Esc cancels.",
+  "action.Fertilize": "Fertilize with held fertilizer",
+  "short.Fertilize": "Fertilize",
+  "action.RemoveSoil": "Clear empty tilled soil with held pickaxe",
+  "short.RemoveSoil": "Clear empty soil",
+  "notice.fertilizer": "Paused: no matching fertilizer remains. Restock and select the area again.",
+  "config.water-empty": "Water empty tilled soil",
+  "config.water-empty-tip": "Off by default. Also water unplanted tilled soil within the selection and enabled actions.",
+  "config.remove-soil-tip": "Off by default. Clear unplanted tilled soil with the held pickaxe. Crops and soil covered by placed objects are protected."
 }

@@ -22,6 +22,9 @@ public static class Watering
     private static readonly ConditionalWeakTable<WateringCan, Cache> patterns = new();
     public static int MaxPower(WateringCan can) => Math.Clamp(can.UpgradeLevel + (can.hasEnchantmentOfType<ReachingToolEnchantment>() ? 1 : 0), 0, 5);
     public static float Energy(Farmer who, WateringCan can, int power) => can.IsEfficient ? 0 : Math.Max(0, 2 * (power + 1) - who.FarmingLevel * .1f);
+    public static bool Affordable(Farmer who, WateringCan can, int power, ModConfig config)
+        => (who.hasWateringCanEnchantment || can.IsBottomless || can.WaterLeft >= power + 1)
+            && who.Stamina - Energy(who, can, power) >= config.ReserveStamina;
     public static WaterPattern[] Patterns(WateringCan can)
     {
         var cached = patterns.GetOrCreateValue(can);
@@ -44,6 +47,9 @@ public static class Watering
     }
 
     public static IEnumerable<Approach> Approaches(IEnumerable<WorkTarget> targets, Farmer who, Rectangle area, ModConfig config)
+        => PlanSteps(targets, who, area, config).OfType<Approach>();
+
+    internal static IEnumerable<Approach?> PlanSteps(IEnumerable<WorkTarget> targets, Farmer who, Rectangle area, ModConfig config)
     {
         var refill = new Dictionary<Cell, bool>();
         // Collision compatibility mods can make sprinklers passable. They should
@@ -52,30 +58,30 @@ public static class Watering
         var standable = new Dictionary<Cell, bool>();
         bool CanWaterStand(Cell tile)
         {
-            if (IsSprinklerTile(who.currentLocation, tile))
-                return false;
             if (!standable.TryGetValue(tile, out bool result))
-                standable[tile] = result = WorldTargets.CanStand(who.currentLocation, who, tile);
+                standable[tile] = result = CanStand(who.currentLocation, who, tile);
             return result;
         }
         foreach (var group in targets.Where(t => t.Kind == ActionKind.Water && t.Entity is not WaterSource && t.Tool is WateringCan).GroupBy(t => t.Tool))
         {
             var can = (WateringCan)group.Key!;
             var at = Cell.Of(who);
-            // Keep charged planning local and bounded; remaining targets retain simple reachable goals.
+            // Regional scheduling keeps live planning local; direct callers also have a fixed cap.
             var byTile = group.OrderBy(t => Math.Abs(t.Origin.X - at.X) + Math.Abs(t.Origin.Y - at.Y)).Take(256).GroupBy(t => t.Origin).ToDictionary(g => g.Key, g => g.First());
             foreach (var pattern in Patterns(can))
             {
-                if (!who.hasWateringCanEnchantment && !can.IsBottomless && can.WaterLeft < pattern.Power + 1)
-                    continue;
-                if (who.Stamina - Energy(who, can, pattern.Power) < config.ReserveStamina)
+                if (!Affordable(who, can, pattern.Power, config))
                     continue;
                 var aims = new HashSet<Cell>();
                 foreach (var tile in byTile.Keys)
+                {
                     foreach (var delta in pattern.Offsets)
                         aims.Add(new(tile.X - delta.X, tile.Y - delta.Y));
+                    yield return null;
+                }
                 foreach (var aim in aims)
                 {
+                    yield return null;
                     if (!area.Contains(aim.X, aim.Y))
                         continue;
                     if (IsSprinklerTile(who.currentLocation, aim))
@@ -102,10 +108,13 @@ public static class Watering
     private static bool IsSprinklerTile(GameLocation map, Cell tile)
         => map.Objects.TryGetValue(tile.Tile, out var obj) && WorldTargets.IsSprinklerObject(obj);
 
+    internal static bool CanStand(GameLocation map, Farmer who, Cell tile)
+        => !IsSprinklerTile(map, tile) && WorldTargets.CanStand(map, who, tile);
+
     public static bool Valid(Approach plan, WorkBoard board, Farmer who, ModConfig config)
     {
         if (plan.Target.Tool is not WateringCan can || board.Location != who.currentLocation || Cell.Of(who) != plan.Stand
-            || IsSprinklerTile(who.currentLocation, plan.Stand) || !WorldTargets.CanStand(who.currentLocation, who, plan.Stand))
+            || !CanStand(who.currentLocation, who, plan.Stand))
             return false;
         var aim = Cell.At(plan.Aim / 64);
         if (IsSprinklerTile(who.currentLocation, aim))
@@ -114,9 +123,7 @@ public static class Watering
             return who.currentLocation.CanRefillWateringCanOnTile(aim.X, aim.Y);
         if (who.currentLocation.CanRefillWateringCanOnTile(aim.X, aim.Y))
             return false;
-        if (!who.hasWateringCanEnchantment && can.WaterLeft <= 0)
-            return false;
-        if (who.Stamina - Energy(who, can, plan.Power) < config.ReserveStamina)
+        if (!Affordable(who, can, plan.Power, config))
             return false;
         if (plan.Target.Kind == ActionKind.WaterBowl)
             return WorldTargets.Pending(who.currentLocation, plan.Target, config);
@@ -126,18 +133,13 @@ public static class Watering
     }
 }
 
-/// <summary>Incremental BFS finds the nearest reachable shore/well across the current map.</summary>
+/// <summary>Incremental Dijkstra search finds the nearest reachable shore/well across the current map.</summary>
 public sealed class RefillSearch
 {
-    private readonly Farmer who;
     private readonly GameLocation map;
+    private readonly Farmer who;
     private readonly WorkTarget work;
-    private readonly PriorityQueue<Cell, int> frontier = new();
-    private readonly Dictionary<Cell, int> costs = new();
-    private readonly bool diagonal;
-    private readonly Dictionary<Cell, Cell> parents = new();
-    private readonly HashSet<Cell> examined = new();
-    private readonly Cell start;
+    private readonly TileSearch grid;
     public bool Finished
     {
         get; private set;
@@ -146,28 +148,25 @@ public sealed class RefillSearch
     {
         get; private set;
     }
-    public int Visited => examined.Count;
+    public int Visited => grid.Visited;
 
     public RefillSearch(Farmer who, WorkTarget work, bool diagonal = true)
     {
         this.who = who;
         map = who.currentLocation;
         this.work = work;
-        this.diagonal = diagonal;
-        start = Cell.Of(who);
-        frontier.Enqueue(start, 0);
-        costs[start] = 0;
-        parents[start] = start;
-        examined.Add(start);
+        grid = new(Cell.Of(who), p => WorldTargets.CanStand(map, who, p), diagonal);
     }
 
     public void Step(int budget = 160)
     {
         if (Finished)
             return;
-        for (int i = 0; i < budget && frontier.TryDequeue(out var stand, out int cost); i++)
+        var slice = new PlanningSlice();
+        for (int i = 0; i < budget && !grid.Exhausted && slice.HasTime; i++)
         {
-            if (costs[stand] != cost) continue;
+            if (!grid.Advance(out var stand, out _)) continue;
+            if (!Watering.CanStand(map, who, stand)) continue;
             for (int facing = 0; facing < 4; facing++)
             {
                 var water = stand.Add(Cell.Directions[facing]);
@@ -191,35 +190,9 @@ public sealed class RefillSearch
                     return;
                 }
             }
-            foreach (var delta in diagonal ? PathGeometry.Neighbors : Cell.Directions)
-            {
-                var next = stand.Add(delta);
-                if (!PathGeometry.OpenCorner(stand, delta, p => WorldTargets.CanStand(map, who, p)) || !WorldTargets.CanStand(map, who, next))
-                    continue;
-                examined.Add(next);
-                int total = cost + PathGeometry.Cost(delta);
-                if (costs.TryGetValue(next, out int previous) && previous <= total) continue;
-                costs[next] = total;
-                parents[next] = stand;
-                frontier.Enqueue(next, total);
-            }
-            if (examined.Count >= 32768)
-            {
-                Finished = true;
-                return;
-            }
         }
-        if (frontier.Count == 0)
+        if (grid.Exhausted)
             Finished = true;
     }
-    public List<Cell> Path()
-    {
-        var result = new List<Cell>();
-        if (Result is null)
-            return result;
-        for (var p = Result.Stand; p != start; p = parents[p])
-            result.Add(p);
-        result.Reverse();
-        return result;
-    }
+    public List<Cell> Path() => Result is null ? new() : grid.Path(Result.Stand);
 }

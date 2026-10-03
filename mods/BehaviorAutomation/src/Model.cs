@@ -8,11 +8,11 @@ namespace Sznine.BehaviorAutomation;
 
 public enum ToolMode
 {
-    Hand, Pickaxe, Axe, Scythe, Hoe, WateringCan, MilkPail, Shears, Seeds, TreeSeeds, Auto, Place
+    Hand, Pickaxe, Axe, Scythe, Hoe, WateringCan, MilkPail, Shears, Seeds, TreeSeeds, Auto, Place, Fertilizer
 }
 public enum ActionKind
 {
-    Pet, Milk, Shear, Stone, LargeRock, Twig, WildTree, TreeStump, LargeWood, Sapling, FruitTree, Weed, Grass, DeadCrop, HarvestCrop, Fruit, Bush, Forage, Machine, Water, Artifact, Till, PlantCrop, PlantWildTree, PlantFruitTree, PlantTea, Feed, WaterBowl, PlaceFloor, PlaceObject, RemoveFloor, BuildingInterior
+    Pet, Milk, Shear, Stone, LargeRock, Twig, WildTree, TreeStump, LargeWood, Sapling, FruitTree, Weed, Grass, DeadCrop, HarvestCrop, Fruit, Bush, Forage, Machine, Water, Artifact, Till, PlantCrop, PlantWildTree, PlantFruitTree, PlantTea, Feed, WaterBowl, PlaceFloor, PlaceObject, RemoveFloor, BuildingInterior, RemoveSoil, Fertilize
 }
 public enum WorkScope
 {
@@ -77,10 +77,6 @@ public sealed class WorkTarget
         get; init;
     }
     public Item? Icon => Entity is BuildingDoor door ? door.Icon : (Item?)Tool ?? Material ?? (Kind == ActionKind.Feed ? AnimalCare.HayIcon : null);
-    public long Group
-    {
-        get; set;
-    }
     public int FailedRoutes, FailedActions;
     public Rectangle Bounds => Entity is Character animal ? animal.GetBoundingBox() : new(Area.X * 64, Area.Y * 64, Area.Width * 64, Area.Height * 64);
     public Vector2 Aim => Entity is Character animal ? animal.GetBoundingBox().Center.ToVector2() : Origin.Center;
@@ -99,6 +95,7 @@ public static class ModeInfo
         Shears => ToolMode.Shears,
         StardewValley.Object seed when seed.IsWildTreeSapling() || seed.IsFruitTreeSapling() => ToolMode.TreeSeeds,
         StardewValley.Object seed when seed.Category == -74 || seed.IsTeaSapling() => ToolMode.Seeds,
+        StardewValley.Object fertilizer when fertilizer.Category == -19 => ToolMode.Fertilizer,
         StardewValley.Object placeable when Placement.Supports(placeable) => ToolMode.Place,
         _ => null
     };
@@ -111,7 +108,7 @@ public static class ModeInfo
         ToolMode.Hoe => new(255, 95, 100),
         ToolMode.WateringCan => new(25, 240, 255),
         ToolMode.MilkPail => new(255, 235, 100),
-        ToolMode.Seeds => new(205, 120, 255),
+        ToolMode.Seeds or ToolMode.Fertilizer => new(205, 120, 255),
         ToolMode.TreeSeeds => new(20, 210, 165),
         _ => new(255, 75, 210)
     };

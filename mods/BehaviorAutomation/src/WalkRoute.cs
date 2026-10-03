@@ -18,6 +18,8 @@ public sealed class WalkRoute : PathFindController
     private readonly Farmer owner;
     private readonly GameLocation map;
     private double blockedMilliseconds;
+    private Cell? waypoint;
+    private float bestDistance = float.MaxValue;
     public bool Failed
     {
         get; private set;
@@ -56,6 +58,8 @@ public sealed class WalkRoute : PathFindController
             if (Math.Abs(delta.X) <= tolerance && Math.Abs(delta.Y) <= tolerance)
             {
                 pathToEndPoint.Pop();
+                waypoint = null;
+                blockedMilliseconds = 0;
                 continue;
             }
             var from = Cell.Of(owner);
@@ -79,7 +83,6 @@ public sealed class WalkRoute : PathFindController
                 else
                     owner.SetMovingUp(true);
             }
-            var before = owner.Position;
             var previousOwner = preciseOwner;
             float previousStep = maximumStep;
             try
@@ -93,7 +96,15 @@ public sealed class WalkRoute : PathFindController
                 owner.MovePosition(time, Game1.viewport, map);
             }
             finally { preciseOwner = previousOwner; maximumStep = previousStep; }
-            blockedMilliseconds = Vector2.DistanceSquared(before, owner.Position) < .01f ? blockedMilliseconds + time.ElapsedGameTime.TotalMilliseconds : 0;
+            float remaining = Vector2.Distance(cell.Center, owner.GetBoundingBox().Center.ToVector2());
+            if (waypoint != cell || remaining < bestDistance - .25f)
+            {
+                waypoint = cell;
+                bestDistance = remaining;
+                blockedMilliseconds = 0;
+            }
+            else
+                blockedMilliseconds += time.ElapsedGameTime.TotalMilliseconds;
             return blockedMilliseconds > 1200 && End(true);
         }
         return End(false);

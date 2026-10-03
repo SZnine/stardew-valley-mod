@@ -8,6 +8,21 @@ public sealed partial class ModEntry
 {
     private void MovementTests()
     {
+        Check("nonzero movement without waypoint progress cannot keep a route alive forever", () =>
+        {
+            var origin = Who.Position;
+            var route = new WalkRoute(Who, Map, new() { new(25, 20) });
+            Who.controller = route;
+            int frames = 0;
+            while (!route.Finished && frames++ < 40)
+            {
+                // A collision/other controller repeatedly pushes the farmer back while native
+                // MovePosition itself still reports a nonzero step. Only real approach is progress.
+                Who.Position = origin + new Vector2(0, frames % 2);
+                WalkFrame(route, 100);
+            }
+            Assert(route.Finished && route.Failed, "Position jitter reset the route watchdog forever");
+        });
         Check("reproduce old narrow arrival oscillation and verify new route finishes", () =>
         {
             bool reproduced = false;

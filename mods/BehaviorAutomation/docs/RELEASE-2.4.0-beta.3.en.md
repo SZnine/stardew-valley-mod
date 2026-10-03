@@ -1,0 +1,3 @@
+- More natural work routes with nearby tasks completed along the way.
+- Improved recovery from stalled tool actions and repeated interactions.
+- Scythe-first gathering, area fertilizing, and optional empty-soil watering/removal.

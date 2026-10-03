@@ -68,6 +68,9 @@ public static class ScythePlanner
         return best;
     }
     public static IEnumerable<Approach> Approaches(IEnumerable<WorkTarget> targets, Farmer who)
+        => PlanSteps(targets, who).OfType<Approach>();
+
+    internal static IEnumerable<Approach?> PlanSteps(IEnumerable<WorkTarget> targets, Farmer who)
     {
         foreach (var group in targets.Where(t => t.Mode == ToolMode.Scythe && t.Tool is MeleeWeapon).GroupBy(t => t.Tool))
         {
@@ -84,6 +87,7 @@ public static class ScythePlanner
                                 if (!coverage.TryGetValue(key, out var hits))
                                     coverage[key] = hits = new();
                                 hits.Add(target);
+                                yield return null;
                             }
             foreach (var (point, hits) in coverage)
                 yield return new(hits.First(), point.Stand, point.Stand.Add(Cell.Directions[point.Facing]).Center, point.Facing, hits.Count, hits);

@@ -6,13 +6,17 @@ namespace Sznine.BehaviorAutomation;
 
 public static class SmartSelection
 {
+    internal static bool PreferScythe(WorkTarget target) => target.Mode == ToolMode.Scythe
+        && target.Kind is ActionKind.HarvestCrop or ActionKind.Fruit or ActionKind.Bush or ActionKind.Forage
+            or ActionKind.Weed or ActionKind.Grass or ActionKind.DeadCrop;
     // Animal care and produce are independent tasks; other entities retain a single chosen action.
     public static List<WorkTarget> Scan(GameLocation map, Farmer who, ToolMode preferred, Tool? held, Rectangle area, ModConfig config, bool obstacles = false, WorkScope scope = WorkScope.Smart)
         => ScanCore(map, who, preferred, held, area, config, obstacles, scope);
     public static List<WorkTarget> ScanLeft(GameLocation map, Farmer who, Tool? held, Rectangle area, ModConfig config)
         => ScanCore(map, who, ModeInfo.From(held) ?? ToolMode.Hand, held, area, config, false, WorkScope.LeftExtra);
-    private static List<WorkTarget> ScanCore(GameLocation map, Farmer who, ToolMode preferred, Tool? held, Rectangle area, ModConfig config, bool obstacles, WorkScope scope)
+    internal static List<WorkTarget> ScanCore(GameLocation map, Farmer who, ToolMode preferred, Tool? held, Rectangle area, ModConfig config, bool obstacles, WorkScope scope, IReadOnlyList<WorldTargets.WorldEntity>? snapshot = null)
     {
+        var entities = snapshot ?? WorldTargets.Capture(map, area);
         var choices = new Dictionary<(object Entity, ActionKind? Care), (WorkTarget Target, int Score)>();
         var sources = new List<(ToolMode Mode, Tool? Tool, StoredTool? Storage)> { (ToolMode.Hand, null, null) };
         foreach (var (tool, storage) in ToolStorage.Tools(who, config))
@@ -20,7 +24,7 @@ public static class SmartSelection
                 sources.Add((mode, tool, storage));
         foreach (var (mode, tool, storage) in sources)
         {
-            foreach (var target in WorldTargets.Scan(map, who, mode, tool, area, config, includeTill: !obstacles, scope: scope))
+            foreach (var target in WorldTargets.ScanCaptured(map, who, mode, tool, area, config, entities, includeTill: !obstacles, scope: scope))
             {
                 if (!config.Allows(target.Kind, scope))
                     continue;
@@ -42,8 +46,8 @@ public static class SmartSelection
                 int score = rank * 100;
                 if (mode == preferred)
                     score -= 10000;
-                // Cutting weeds and green-rain foliage never needs the held pickaxe's stamina cost.
-                if (target.Kind == ActionKind.Weed && mode == ToolMode.Scythe)
+                // Global gathering uses one native sweep when a scythe is available.
+                if (PreferScythe(target) && unavailable is null)
                     score -= 20000;
                 if (unavailable is not null)
                     score += 500;

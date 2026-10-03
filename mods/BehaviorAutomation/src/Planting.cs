@@ -7,7 +7,8 @@ using SObject = StardewValley.Object;
 namespace Sznine.BehaviorAutomation;
 public static class Planting
 {
-    public static ActionKind Kind(SObject seed) => seed.IsWildTreeSapling() ? ActionKind.PlantWildTree : seed.IsFruitTreeSapling() ? ActionKind.PlantFruitTree : seed.IsTeaSapling() ? ActionKind.PlantTea : ActionKind.PlantCrop;
+    public static ActionKind Kind(SObject seed) => seed.Category == -19 ? ActionKind.Fertilize
+        : seed.IsWildTreeSapling() ? ActionKind.PlantWildTree : seed.IsFruitTreeSapling() ? ActionKind.PlantFruitTree : seed.IsTeaSapling() ? ActionKind.PlantTea : ActionKind.PlantCrop;
     private static int Distance(Cell a, Cell b) => Math.Max(Math.Abs(a.X - b.X), Math.Abs(a.Y - b.Y));
     private static int Spacing(ActionKind kind, ModConfig c) => kind == ActionKind.PlantFruitTree ? c.FruitTreeSpacing : kind == ActionKind.PlantWildTree ? c.WildTreeSpacing : 0;
     private static bool Room(Cell at, ActionKind kind, Func<Cell, ActionKind?> occupied, ModConfig config)
@@ -32,6 +33,8 @@ public static class Planting
     {
         if (map.Map is null || at.X < 0 || at.Y < 0 || at.X >= map.Map.Layers[0].LayerWidth || at.Y >= map.Map.Layers[0].LayerHeight)
             return false;
+        if (seed.Category == -19)
+            return CanFertilize(map, seed, at);
         if (map.Objects.TryGetValue(at.Tile, out var obj))
             return seed.Category == -74 && !seed.IsFruitTreeSapling() && !seed.IsWildTreeSapling()
             && obj is IndoorPot pot && pot.bush.Value is null && pot.hoeDirt.Value.crop is null;
@@ -44,6 +47,8 @@ public static class Planting
     {
         if (!OpenSpot(map, seed, at))
             return false;
+        if (seed.Category == -19)
+            return true; // OpenSpot already uses the native fertilizer rule, including crop phase and pots.
         if (!seed.canBePlacedHere(map, at.Tile, showError: false))
             return false;
         // Native fruit-sapling placement has a ground check beyond canBePlacedHere.
@@ -59,6 +64,17 @@ public static class Planting
                 return false;
         }
         return Room(at, Kind(seed), p => map.terrainFeatures.GetValueOrDefault(p.Tile) switch { FruitTree => ActionKind.PlantFruitTree, Tree => ActionKind.PlantWildTree, _ => null }, config);
+    }
+    private static bool CanFertilize(GameLocation map, SObject fertilizer, Cell at)
+    {
+        if (Utility.isPlacementForbiddenHere(map)) return false;
+        if (fertilizer.QualifiedItemId == "(O)805")
+            return map.terrainFeatures.GetValueOrDefault(at.Tile) is Tree tree && tree.growthStage.Value < 5 && !tree.fertilized.Value;
+        if (map.Objects.TryGetValue(at.Tile, out var obj) && (obj is not IndoorPot pot || pot.bush.Value is not null))
+            return false;
+        // CanApplyFertilizer owns existing fertilizer and crop-stage restrictions; never call plant() as a probe.
+        return map.GetHoeDirtAtTile(at.Tile) is { } soil && soil.CanApplyFertilizer(fertilizer.QualifiedItemId)
+            && fertilizer.canBePlacedHere(map, at.Tile, showError: false);
     }
     public static List<WorkTarget> Scan(GameLocation map, SObject seed, ToolMode mode, Rectangle area, HashSet<Cell> added, ModConfig config, IEnumerable<WorkTarget> queued)
     {

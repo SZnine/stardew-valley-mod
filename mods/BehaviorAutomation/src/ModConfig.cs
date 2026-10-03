@@ -19,6 +19,7 @@ public sealed class ModConfig
     public int ScytheSearchTiles { get; set; } = 12;
     public int ScytheSwingCost { get; set; } = 16;
     public bool AutoRefillWateringCan { get; set; } = true;
+    public bool WaterEmptySoil { get; set; }
     public bool ClearObstacles { get; set; } = true;
     public bool PanWhileSelecting { get; set; } = true;
     public bool ShowSelectionSize { get; set; } = true;
@@ -35,7 +36,7 @@ public sealed class ModConfig
     {
         get; set;
     } = Enum.GetValues<ActionKind>()
-        .Except(new[] { ActionKind.Sapling, ActionKind.FruitTree, ActionKind.BuildingInterior }).ToHashSet();
+        .Except(new[] { ActionKind.Sapling, ActionKind.FruitTree, ActionKind.BuildingInterior, ActionKind.RemoveSoil }).ToHashSet();
     public HashSet<ActionKind> SmartActions
     {
         get; set;
@@ -48,7 +49,8 @@ public sealed class ModConfig
     } = new()
     {
         ActionKind.Pet, ActionKind.Milk, ActionKind.Shear, ActionKind.Feed, ActionKind.WaterBowl,
-        ActionKind.HarvestCrop, ActionKind.Fruit, ActionKind.Bush, ActionKind.Forage, ActionKind.Machine
+        ActionKind.HarvestCrop, ActionKind.Fruit, ActionKind.Bush, ActionKind.Forage, ActionKind.Machine,
+        ActionKind.Weed, ActionKind.Grass, ActionKind.DeadCrop
     };
     public int ConfigVersion
     {
@@ -104,7 +106,15 @@ public sealed class ModConfig
         }
         if (ConfigVersion < 7)
             Actions.Add(ActionKind.RemoveFloor);
-        ConfigVersion = 9;
+        if (ConfigVersion < 10)
+        {
+            Actions.Add(ActionKind.Fertilize);
+            // Expand the old default only. A user's customized or empty global pool stays intact.
+            if (LeftActions.SetEquals(new[] { ActionKind.Pet, ActionKind.Milk, ActionKind.Shear, ActionKind.Feed, ActionKind.WaterBowl,
+                ActionKind.HarvestCrop, ActionKind.Fruit, ActionKind.Bush, ActionKind.Forage, ActionKind.Machine }))
+                LeftActions.UnionWith(new[] { ActionKind.Weed, ActionKind.Grass, ActionKind.DeadCrop });
+        }
+        ConfigVersion = 10;
     }
 }
 
@@ -112,4 +122,6 @@ internal static class WorkRules
 {
     public const int MaxSelectionSize = 64;
     public const int MaxJobs = 4096;
+    public const int OpportunityDetourCost = 20; // At most two walking tiles beyond the committed main route.
+    public const double OperationTimeoutMilliseconds = 12000;
 }

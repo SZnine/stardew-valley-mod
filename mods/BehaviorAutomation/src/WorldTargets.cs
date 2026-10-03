@@ -36,8 +36,9 @@ public static class WorldTargets
     private static bool FloorCovered(GameLocation map, Cell at) => map.Objects.ContainsKey(at.Tile)
         || map.buildings.Any(b => b.occupiesTile(at.Tile))
         || map.furniture.Any(f => f.GetBoundingBox().Intersects(new Rectangle(at.X * 64, at.Y * 64, 64, 64)));
-    private static bool Dry(HoeDirt soil) => soil.crop is not null && !soil.crop.dead.Value && soil.state.Value != 1 && soil.needsWatering();
-    private static ActionKind? Classify(object entity, ToolMode mode, Tool? tool)
+    private static bool Dry(HoeDirt soil, ModConfig config) => soil.state.Value != 1
+        && (soil.crop is null ? config.WaterEmptySoil : !soil.crop.dead.Value && soil.needsWatering());
+    private static ActionKind? Classify(object entity, ToolMode mode, Tool? tool, ModConfig config)
     {
         if (entity is Pet pet)
             return mode == ToolMode.Hand && (!pet.lastPetDay.TryGetValue(Game1.player.UniqueMultiplayerID, out int day) || day != Game1.Date.TotalDays) ? ActionKind.Pet : null;
@@ -53,7 +54,9 @@ public static class WorldTargets
         }
         if (Soil(entity) is { } soil)
         {
-            if (mode == ToolMode.WateringCan && Dry(soil))
+            if (mode == ToolMode.Pickaxe && entity is HoeDirt && soil.crop is null)
+                return ActionKind.RemoveSoil;
+            if (mode == ToolMode.WateringCan && Dry(soil, config))
                 return ActionKind.Water;
             if (mode is ToolMode.Hand or ToolMode.Scythe && Harvestable(soil, mode, tool))
                 return ActionKind.HarvestCrop;
@@ -119,32 +122,16 @@ public static class WorldTargets
         }
         return null;
     }
-    public static List<WorkTarget> Scan(GameLocation map, Farmer who, ToolMode mode, Tool? tool, Rectangle area, ModConfig config, bool includeTill = true, WorkScope scope = WorkScope.Held)
+    internal readonly record struct WorldEntity(object Entity, Cell Origin, Rectangle Area);
+
+    // Capture world membership once per selection refresh, then classify that snapshot for each tool.
+    internal static IReadOnlyList<WorldEntity> Capture(GameLocation map, Rectangle area)
     {
-        var targets = new List<WorkTarget>();
+        var result = new List<WorldEntity>();
         var seen = new HashSet<object>(ReferenceEqualityComparer.Instance);
         void Add(object entity, Cell origin, Rectangle bounds)
         {
-            if (!area.Intersects(bounds) || !seen.Add(entity))
-                return;
-            if (entity is SObject { QualifiedItemId: "(O)178" } && map is AnimalHouse && map.doesTileHaveProperty(origin.X, origin.Y, "Trough", "Back") is not null)
-                return;
-            // Removing the floor beneath a placed object is ambiguous and cannot use the native tool safely.
-            if (entity is Flooring && FloorCovered(map, origin))
-                return;
-            var kind = Classify(entity, mode, tool);
-            if (kind is null || !config.Allows(kind.Value, scope))
-                return;
-            targets.Add(new()
-            {
-                Scope = scope,
-                Mode = mode,
-                Kind = kind.Value,
-                Entity = entity,
-                Origin = origin,
-                Area = bounds,
-                Tool = tool
-            });
+            if (area.Intersects(bounds) && seen.Add(entity)) result.Add(new(entity, origin, bounds));
         }
         foreach (var pair in map.terrainFeatures.Pairs)
         {
@@ -173,15 +160,47 @@ public static class WorldTargets
             var p = Cell.At(animal.GetBoundingBox().Center.ToVector2() / 64);
             Add(animal, p, new(b.Left / 64, b.Top / 64, Math.Max(1, (b.Right - 1) / 64 - b.Left / 64 + 1), Math.Max(1, (b.Bottom - 1) / 64 - b.Top / 64 + 1)));
         }
-        if (mode == ToolMode.WateringCan)
-            foreach (var bowl in map.buildings.OfType<PetBowl>())
-                for (int y = bowl.tileY.Value; y < bowl.tileY.Value + bowl.tilesHigh.Value; y++)
-                    for (int x = bowl.tileX.Value; x < bowl.tileX.Value + bowl.tilesWide.Value; x++)
-                    {
-                        string property = null!;
-                        if (bowl.doesTileHaveProperty(x, y, "PetBowl", "Buildings", ref property))
-                            Add(bowl, new(x, y), new(x, y, 1, 1));
-                    }
+        foreach (var bowl in map.buildings.OfType<PetBowl>())
+            for (int y = bowl.tileY.Value; y < bowl.tileY.Value + bowl.tilesHigh.Value; y++)
+                for (int x = bowl.tileX.Value; x < bowl.tileX.Value + bowl.tilesWide.Value; x++)
+                {
+                    string property = null!;
+                    if (bowl.doesTileHaveProperty(x, y, "PetBowl", "Buildings", ref property))
+                        Add(bowl, new(x, y), new(x, y, 1, 1));
+                }
+        return result;
+    }
+
+    public static List<WorkTarget> Scan(GameLocation map, Farmer who, ToolMode mode, Tool? tool, Rectangle area, ModConfig config, bool includeTill = true, WorkScope scope = WorkScope.Held)
+        => ScanCaptured(map, who, mode, tool, area, config, Capture(map, area), includeTill, scope);
+
+    internal static List<WorkTarget> ScanCaptured(GameLocation map, Farmer who, ToolMode mode, Tool? tool, Rectangle area,
+        ModConfig config, IReadOnlyList<WorldEntity> entities, bool includeTill = true, WorkScope scope = WorkScope.Held)
+    {
+        var targets = new List<WorkTarget>();
+        void Add(object entity, Cell origin, Rectangle bounds)
+        {
+            if (entity is SObject { QualifiedItemId: "(O)178" } && map is AnimalHouse && map.doesTileHaveProperty(origin.X, origin.Y, "Trough", "Back") is not null)
+                return;
+            // Removing the floor beneath a placed object is ambiguous and cannot use the native tool safely.
+            if ((entity is Flooring || entity is HoeDirt && mode == ToolMode.Pickaxe) && FloorCovered(map, origin))
+                return;
+            var kind = Classify(entity, mode, tool, config);
+            if (kind is null || !config.Allows(kind.Value, scope))
+                return;
+            targets.Add(new()
+            {
+                Scope = scope,
+                Mode = mode,
+                Kind = kind.Value,
+                Entity = entity,
+                Origin = origin,
+                Area = bounds,
+                Tool = tool
+            });
+        }
+        foreach (var entry in entities)
+            Add(entry.Entity, entry.Origin, entry.Area);
         if (includeTill && mode == ToolMode.Hand && config.Allows(ActionKind.Feed, scope) && map is AnimalHouse house)
             for (int y = area.Top; y < area.Bottom; y++)
                 for (int x = area.Left; x < area.Right; x++)
@@ -281,7 +300,7 @@ public static class WorldTargets
                 && ReferenceEquals(door.Building.GetIndoors(), door.Inside);
         if (!config.Allows(target.Kind, target.Scope))
             return false;
-        if (target.Entity is Flooring && FloorCovered(map, target.Origin))
+        if ((target.Entity is Flooring || target.Kind == ActionKind.RemoveSoil) && FloorCovered(map, target.Origin))
             return false;
         if (target.Entity is WaterSource water)
             return water.Can.WaterLeft <= 0 && map.CanRefillWateringCanOnTile(water.Tile.X, water.Tile.Y);
@@ -303,13 +322,13 @@ public static class WorldTargets
             return false;
         if (target.Kind == ActionKind.Till)
             return true;
-        var kind = Classify(target.Entity, target.Mode, target.Tool);
+        var kind = Classify(target.Entity, target.Mode, target.Tool, config);
         return kind == target.Kind && config.Allows(kind.Value, target.Scope);
     }
     public static string? Unable(WorkTarget target, Farmer who, ModConfig config)
     {
         if (target.Material is { } seed && Placement.FindStock(who, seed) is null)
-            return target.Mode == ToolMode.Place ? "materials" : "seeds";
+            return target.Mode switch { ToolMode.Place => "materials", ToolMode.Fertilizer => "fertilizer", _ => "seeds" };
         if (target.Kind == ActionKind.Feed && !AnimalCare.HasHay(who))
             return "hay";
         if (target.Entity is FarmAnimal && target.Kind == ActionKind.Pet && Game1.timeOfDay >= 1900)
@@ -374,6 +393,7 @@ public static class WorldTargets
         Grass g => g.numberOfWeeds.Value,
         HoeDirt s => CropProgress(s),
         IndoorPot p => CropProgress(p.hoeDirt.Value),
+        SObject o when AnimalCare.Grabber(o) is { } chest => chest.Items.Sum(item => item?.Stack ?? 0),
         SObject o => o.MinutesUntilReady,
         _ => 0
     };

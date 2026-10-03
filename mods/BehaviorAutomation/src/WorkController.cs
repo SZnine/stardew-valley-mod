@@ -7,31 +7,18 @@ using StardewValley.Tools;
 
 namespace Sznine.BehaviorAutomation;
 
-public sealed class Operation
-{
-    public Approach Approach = null!;
-    public double Elapsed, Before, Charge;
-    public bool SawUsing, Released, ImpactApproved;
-    public int Generation;
-    public readonly HashSet<WorkTarget> Gather = new();
-}
-
 public sealed partial class WorkController
 {
     public WorkBoard Board { get; private set; } = new();
     private readonly Func<ModConfig> config;
     private readonly Action<string> notice;
+    private readonly Action<string>? diagnostic;
     private Farmer? owner;
-    private RouteSearch? search;
+    private WorkSearch? search;
     private RefillSearch? refillSearch;
     private WalkRoute? walk;
     private Approach? approach;
-    private int revision;
     private List<WorkTarget>? routeCandidates;
-    private int scytheStreak;
-    // Number of non-scythe operations completed while scythe work remained pending.
-    // It is a small starvation guard, not a global tool phase.
-    private int scytheDeferrals;
     private double routeAge;
     private double cooldown;
     private double refreshIn;
@@ -60,12 +47,13 @@ public sealed partial class WorkController
     }
     private double movementMilliseconds;
     public bool HasSession => buildingJourney is not null || Board.HasSelection && State != "idle";
-    public WorkTarget? DisplayedTask => Active is { } active && active.Generation == Board.Generation ? active.Approach.Target : approach?.Target ?? (displayedTask is { } shown && (Board.Jobs.Contains(shown) || Board.Jobs.Count == 0) ? shown : Board.Jobs.OrderBy(t => t.Group).FirstOrDefault());
+    public WorkTarget? DisplayedTask => Active is { } active && active.Generation == Board.Generation ? active.Approach.Target : approach?.Target ?? (displayedTask is { } shown && (Board.Jobs.Contains(shown) || Board.Jobs.Count == 0) ? shown : Board.Coordinator.MainTarget ?? Board.Jobs.FirstOrDefault());
     public bool OwnsSession => Editing || Active is not null || !Paused && HasSession;
-    public WorkController(Func<ModConfig> config, Action<string> notice)
+    public WorkController(Func<ModConfig> config, Action<string> notice, Action<string>? diagnostic = null)
     {
         this.config = config;
         this.notice = notice;
+        this.diagnostic = diagnostic;
     }
     public void Pause(string reason = "paused", bool notify = false)
     {
@@ -103,8 +91,6 @@ public sealed partial class WorkController
             buildingJourney = null;
         }
         failedObstacles.Clear();
-        scytheStreak = 0;
-        scytheDeferrals = 0;
         Paused = false;
         ManualMovement = false;
         movementMilliseconds = 0;
@@ -157,6 +143,7 @@ public sealed partial class WorkController
             owner.Halt();
         }
         walk = null;
+        search?.Dispose();
         search = null;
         refillSearch = null;
         approach = null;
@@ -269,58 +256,7 @@ public sealed partial class WorkController
         }
         if (Active is { } op)
         {
-            op.Elapsed += milliseconds;
-            op.SawUsing |= who.UsingTool;
-            if (who.UsingTool && who.CurrentTool == op.Approach.Target.Tool && who.canReleaseTool && !op.Released && who.CurrentTool is WateringCan or Hoe)
-            {
-                if (op.Generation != Board.Generation || Paused || !eligible || Editing || ManualMovement)
-                {
-                    CancelCharge();
-                    return;
-                }
-                AdvanceCharge(who, op, milliseconds);
-            }
-            if (!who.UsingTool && (op.SawUsing || op.Elapsed > 120))
-            {
-                var t = op.Approach.Target;
-                if (op.Generation != Board.Generation)
-                {
-                    Active = null;
-                    ReturnTool();
-                    return;
-                }
-                // Keep the owned-operation harvest guard through deferred crop collection.
-                try
-                {
-                    foreach (var gathered in op.Gather)
-                        if (Board.Location == who.currentLocation && Board.Jobs.Contains(gathered) && WorldTargets.Pending(who.currentLocation, gathered, config()))
-                            WorldTargets.Gather(who.currentLocation, who, gathered);
-                }
-                finally { Active = null; ReturnTool(); }
-                if (Board.Location == who.currentLocation && WorldTargets.Pending(who.currentLocation, t, config()))
-                {
-                    if (Math.Abs(WorldTargets.Progress(t) - op.Before) < .001 && ++t.FailedActions >= 3)
-                    {
-                        Board.Reject(t);
-                        if (t.IsObstacle)
-                            failedObstacles.Add(t.Entity);
-                        notice("no-effect");
-                    }
-                    else if (Math.Abs(WorldTargets.Progress(t) - op.Before) >= .001)
-                        t.FailedActions = 0;
-                }
-                Board.Prune(config());
-                Board.Refresh(who, config());
-                cooldown = t.Mode == ToolMode.Scythe ? 0 : 60;
-                // Native trees expose the stump as soon as the trunk starts falling.
-                if (t.Mode == ToolMode.Axe && t.Entity is Tree && Board.Jobs.Contains(t) && Cell.Of(who) == op.Approach.Stand && Math.Abs(WorldTargets.Progress(t) - op.Before) >= .001)
-                {
-                    approach = op.Approach;
-                    cooldown = 0;
-                }
-            }
-            else if (op.Elapsed > 12000 && !Paused)
-                Pause("busy", true);
+            TickOperation(who, op, milliseconds, eligible);
             return;
         }
         if (Board.Location is not null && who.currentLocation != Board.Location)
@@ -373,18 +309,6 @@ public sealed partial class WorkController
         }
         if (approach is { } planned && !Board.Jobs.Contains(planned.Target))
             StopPath();
-        if (Board.Revision != revision)
-        {
-            // A new task doesn't invalidate a committed valid route. Refresh pending searches
-            // only; explicit replacement/cancel and invalid goals still stop immediately.
-            if (walk is null && approach is null)
-            {
-                search = null;
-                clearance = null;
-                routeCandidates = null;
-            }
-            revision = Board.Revision;
-        }
         if (walk is not null)
         {
             routeAge += milliseconds;
@@ -450,7 +374,6 @@ public sealed partial class WorkController
             if (obstacle is not null)
             {
                 obstacle.IsObstacle = true;
-                obstacle.Group = Board.Jobs.Min(t => t.Group) - 1;
                 if (!Board.Jobs.Any(t => ReferenceEquals(t.Entity, obstacle.Entity)))
                     Board.Jobs.Add(obstacle);
                 return;
@@ -480,7 +403,10 @@ public sealed partial class WorkController
         }
         if (search is null)
         {
-            var candidates = Board.Jobs.Any(t => t.IsObstacle) ? Board.Jobs.Where(t => t.IsObstacle).ToList() : Board.Jobs.ToList();
+            var candidates = Board.Jobs.Where(t => t.IsObstacle || t.Entity is WaterSource).ToList();
+            bool forced = candidates.Count > 0;
+            if (!forced) candidates = Board.Coordinator.Candidates(Board.Jobs).ToList();
+            var selected = candidates.ToArray();
             string? blockedReason = null;
             foreach (var t in candidates.ToArray())
             {
@@ -499,9 +425,11 @@ public sealed partial class WorkController
             }
             if (candidates.Count == 0)
             {
-                var thirsty = Board.Jobs.FirstOrDefault(t => WorldTargets.Unable(t, who, config()) == "water");
+                var thirsty = selected.Where(t => WorldTargets.Unable(t, who, config()) == "water")
+                    .MinBy(t => PathGeometry.Distance(Cell.Of(who), t.Origin));
                 if (thirsty is not null && config().AutoRefillWateringCan)
                 {
+                    Board.Coordinator.Pin(thirsty);
                     refillSearch = new(who, thirsty, config().AllowDiagonalMovement);
                     State = "refill-planning";
                     return;
@@ -510,10 +438,10 @@ public sealed partial class WorkController
                     Pause(blockedReason, true);
                 return;
             }
-            // Pattern reservations determine spacing, not travel order. Start at a reachable
-            // nearby seed/floor tile instead of always walking to the rectangle's top-left.
             routeCandidates = candidates;
-            search = new(Cell.Of(who), candidates, p => WorldTargets.CanStand(who.currentLocation, who, p), scytheFarmer: who, scytheStreak: scytheStreak, scytheDeferrals: scytheDeferrals, waterPlans: Board.Area is { } area ? Watering.Approaches(candidates, who, area, config()) : null, settings: config());
+            search = Board.Coordinator.Search(who, candidates, Board.Jobs,
+                Board.Area ?? new(0, 0, who.currentLocation.Map.Layers[0].LayerWidth, who.currentLocation.Map.Layers[0].LayerHeight),
+                config(), forced);
         }
         State = "planning";
         search.Step();
@@ -521,7 +449,10 @@ public sealed partial class WorkController
             return;
         if (search.Result is null)
         {
+            if (search.FailedCandidates.Count > 0) routeCandidates = search.FailedCandidates.ToList();
+            search.Dispose();
             search = null;
+            Board.Coordinator.InvalidateRoute();
             if (config().ClearObstacles && !Board.Jobs.Any(t => t.IsObstacle))
             {
                 clearance = new(who.currentLocation, who, routeCandidates!, Board.ObstacleCandidates(who, config()), config(), failedObstacles);
@@ -532,7 +463,8 @@ public sealed partial class WorkController
         }
         approach = search.Result;
         displayedTask = approach.Target;
-        var path = search.Path();
+        var path = search.Path;
+        search.Dispose();
         search = null;
         bool center = approach.Target.Mode == ToolMode.Scythe;
         if (center && path.Count == 0)
@@ -547,6 +479,7 @@ public sealed partial class WorkController
     }
     private void SkipUnreachable()
     {
+        bool refill = routeCandidates?.Any(t => t.Entity is WaterSource) == true;
         foreach (var t in (routeCandidates ?? new()).Where(Board.Jobs.Contains).ToArray())
         {
             if (t.IsObstacle)
@@ -555,16 +488,20 @@ public sealed partial class WorkController
         }
         StopPath();
         notice("unreachable");
+        if (refill) Pause("no-water-source", true);
     }
     private void Retry(WorkTarget target)
     {
         StopPath();
+        Board.Coordinator.InvalidateRoute();
         if (++target.FailedRoutes >= 3)
         {
+            diagnostic?.Invoke($"Route made no progress: {target.Kind} at {target.Origin.X},{target.Origin.Y}; player={Cell.Of(owner!)}.");
             Board.Reject(target);
             if (target.IsObstacle)
                 failedObstacles.Add(target.Entity);
             notice("unreachable");
+            if (target.Entity is WaterSource) Pause("no-water-source", true);
         }
     }
 }

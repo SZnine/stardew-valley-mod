@@ -31,7 +31,7 @@
 
 以上文件位于 `src/`；原生回归场景位于 `tests/native/`。
 
-左键基础使用 `Actions`，左键全局使用 `LeftActions`，右键工具池使用 `SmartActions`。三者独立，目标通过 `WorkTarget.Scope` 保留权限来源。锄地、挖掘点、种植、放置和拆地板不进入自动工具池。
+左键基础使用 `Actions`，左键全局使用 `LeftActions`，右键工具池使用 `SmartActions`。三者独立，目标通过 `WorkTarget.Scope` 保留权限来源。锄地、挖掘点、种植、施肥、放置、拆地板和清除空耕地不进入自动工具池。
 
 新增行为时，同步行为目录、目标判定、执行方式、图标、两份语言文件和配置迁移。放置调用原版 `Utility.tryToPlaceItem`，成功后由原版扣除材料。
 
@@ -88,7 +88,7 @@ GMCM、Passable Crops 和独立智能水壶用于各自的兼容场景。不提�
 
 `BuildingWork` discovers native entrances; `BuildingJourney` keeps the outside board during one interior visit. The child board inherits the selected action pools. Expected native warps switch boards; other warps or cancellation clear the session. Board generations are unique across this transition.
 
-`Navigation` keeps reachable travel distance in batch scoring. A bounded second-swing comparison preserves grouping, while planting and placement no longer force the first reserved tile to execute first. Tree positions still follow the spacing plan in `Planting`.
+`Navigation` measures reachable travel distance. `WorkCoordinator` retains the main work plan across nearby single-target opportunities; area tools keep a stable progression. `ActionPlans` and `TileSearch` spread candidate and route search across updates. Tree positions follow `Planting` spacing rules.
 
 Future development will focus on automation within selected areas, improving existing actions, pathfinding, and compatibility. Extra smart systems and unrelated features will be kept limited to control mod size and maintenance cost.
 
@@ -98,3 +98,13 @@ Future development will focus on automation within selected areas, improving exi
 `ActionMenu` handles the shared action pools and input; `ActionMenuLayout` renders Cards, Sidebar, and List from the same controls. `ActionSettings` keeps a scrollable set of settings, while `ActionKeybinds` records one chord until release. `ModEntry.Buttons` routes input to the recorder before handling the panel shortcut. All settings use the same `ModConfig` instance and save callback as GMCM.
 
 `Overlay` renders Filled, Outline, or Grid during a drag. All styles use the same tile bounds, dimension badge, and topmost composition path. Default choices are Sidebar and Grid; missing fields get those defaults without replacing stored keybinds or action pools.
+
+## 2.4 execution and field actions
+
+`OperationLifecycle` owns tool completion, cancellation and bounded recovery; release only locks owned by the same operation. `WorkCoordinator` preserves the main plan while inserting closer, on-route single-target work after the current action completes. No legacy region strategy remains in runtime source.
+
+`SmartSelection.PreferScythe` and `WorkBoard` keep an eligible global scythe choice when merging held work. `Planting` performs read-only fertilizer eligibility checks; native placement owns consumption. `RemoveSoil` is held-left only, disabled by default, and rechecks crops and covered tiles before impact. `WaterEmptySoil` defaults false and reuses watering plans and refilling.
+
+The published beta.3 ZIP passed 191 native checks in each of two compatibility environments and 20 normal-frame scenarios in total. The latter cover mixed work, occlusion, moving animals, scythe preference, fertilizer, empty-soil watering/removal, and deliberately lost tool callbacks. Protected-object touches were zero. These isolated synthetic scenes do not establish acceptance for every player save or mod combination.
+
+Normal-frame fixtures are included in `tests/native`. Use `run-native.ps1 -Realtime -DemoSavePath '<extracted BehaviorDemo_260915220 folder>'` with the separately published demo save. The runner copies it into the isolated run directory and never loads a player save. Compatibility mods use the same `-CompatibilityModPaths` parameter.

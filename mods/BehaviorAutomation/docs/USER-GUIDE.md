@@ -14,7 +14,7 @@ Click a key field, press a key or chord, then release to save. Esc cancels recor
 
 ## General settings
 
-Generic Mod Config Menu exposes 22 settings. The F8 settings page also provides menu and selection styles, three hotkeys, selection dimensions, camera panning, interior work, stored tools, and tree spacing. Other general settings can be edited in `config.json` while the game is closed.
+Generic Mod Config Menu exposes 24 settings. The F8 settings page also provides menu and selection styles, three hotkeys, selection dimensions, camera panning, interior work, stored tools, and tree spacing. Other general settings can be edited in `config.json` while the game is closed.
 
 | Setting | Default / range |
 | --- | --- |
@@ -35,6 +35,13 @@ Generic Mod Config Menu exposes 22 settings. The F8 settings page also provides 
 | Fruit-tree trunk spacing | 3 tiles; 3–8 |
 | Target refresh interval | 0.3 s; adjustable from 0.1–1 s |
 | Completion recheck window | 1.5 s; adjustable from 0.3–3 s |
+
+## Fertilizer and empty tilled soil
+
+- Left extras prefer available scythes for eligible harvesting, gathering and clearing tasks.
+- Hold fertilizer and Shift + left-drag. Native eligibility and consumption apply to soil, garden pots and tree fertilizer. Existing fertilizer is preserved; work pauses when matching stock runs out.
+- Empty-soil watering is disabled by default. Enable it in F8 Settings or GMCM to water dry, already tilled, unplanted soil, using normal charged watering and refilling.
+- Empty-soil removal is disabled by default. Enable it under F8 Left held item or GMCM and hold a pickaxe. Crops and covered tiles are protected; native removal also removes soil fertilizer. This action stays outside the automatic tool pools.
 
 ## Work rules
 

@@ -42,7 +42,8 @@ public sealed class ObstaclePlanner
                         continue;
                     blockers.TryAdd(p, target);
                 }
-        route = new(Cell.Of(who), goals, p => WorldTargets.CanStand(map, who, p), p => blockers.ContainsKey(p) ? 40 : null, settings: config);
+        route = new(Cell.Of(who), ActionPlans.Adjacent(goals), p => WorldTargets.CanStand(map, who, p), config,
+            clearanceCost: p => blockers.ContainsKey(p) ? 40 : null);
     }
     public void Step() => route.Step();
     public WorkTarget? FirstObstacle()

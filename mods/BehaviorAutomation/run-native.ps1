@@ -3,6 +3,8 @@ param(
     [string]$GamePath = $env:STARDEW_GAME_PATH,
     [string[]]$CompatibilityModPaths = @(),
     [switch]$PrepareOnly,
+    [switch]$Realtime,
+    [string]$DemoSavePath,
     [ValidateRange(30, 600)][int]$TimeoutSeconds = 180
 )
 
@@ -25,6 +27,13 @@ if ([string]::IsNullOrWhiteSpace($GamePath)) {
     throw 'Pass -GamePath or set STARDEW_GAME_PATH to your game installation.'
 }
 $game = (Resolve-Path -LiteralPath $GamePath).ProviderPath
+if ($Realtime) {
+    if ([string]::IsNullOrWhiteSpace($DemoSavePath)) { throw 'Pass -DemoSavePath with the extracted synthetic BehaviorDemo_260915220 folder.' }
+    $demo = (Resolve-Path -LiteralPath $DemoSavePath).ProviderPath
+    if ((Split-Path -Leaf $demo) -ne 'BehaviorDemo_260915220' -or !(Test-Path -LiteralPath (Join-Path $demo 'SaveGameInfo'))) {
+        throw 'Use the published BehaviorDemo_260915220 synthetic save.'
+    }
+}
 if (!(Test-Path -LiteralPath (Join-Path $game 'StardewModdingAPI.exe'))) {
     throw 'This native test runner requires the Windows version of SMAPI.'
 }
@@ -76,6 +85,13 @@ foreach ($path in $CompatibilityModPaths) {
     Dependencies = @(@{ UniqueID = 'sznine.BehaviorAutomation'; IsRequired = $true })
 } | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $probe 'manifest.json') -Encoding UTF8
 
+if ($Realtime) {
+    $saves = Join-Path $run 'saves'
+    New-Item -ItemType Directory -Force -Path $saves | Out-Null
+    Copy-Item -LiteralPath $demo -Destination $saves -Recurse
+    @{ Root = $run } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $probe 'realtime.json') -Encoding UTF8
+}
+
 if ($PrepareOnly) {
     [pscustomobject]@{ Prepared = $true; RuntimeMods = $runtime; Evidence = $evidence; CompatibilityMods = $loaded }
     return
@@ -89,13 +105,18 @@ if (!$process.WaitForExit($TimeoutSeconds * 1000)) {
     Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
     throw "Native fixture timed out. Inspect $evidence"
 }
-$resultFile = Join-Path $evidence 'native-result.json'
+$resultFile = Join-Path $evidence $(if ($Realtime) { 'result.json' } else { 'native-result.json' })
 if (!(Test-Path -LiteralPath $resultFile)) {
     throw "Native fixture exited without a result. Inspect $evidence"
 }
 $result = Get-Content -LiteralPath $resultFile -Raw -Encoding UTF8 | ConvertFrom-Json
 $expectedHash = (Get-FileHash -LiteralPath (Join-Path $product 'BehaviorAutomation.dll') -Algorithm SHA256).Hash
-if ($result.ProductSHA256 -ne $expectedHash -or $result.Failed -ne 0 -or $result.Passed -le 0) {
+if ($Realtime) {
+    if ($result.ProductSHA256 -ne $expectedHash -or $result.Failed -ne $false -or !$result.Cases -or @($result.Cases | Where-Object { !$_.Passed }).Count -ne 0) {
+        throw "Realtime fixture failed or tested a different DLL. Inspect $resultFile"
+    }
+}
+elseif ($result.ProductSHA256 -ne $expectedHash -or $result.Failed -ne 0 -or $result.Passed -le 0) {
     throw "Native fixture failed or tested a different DLL. Inspect $resultFile"
 }
 $result
